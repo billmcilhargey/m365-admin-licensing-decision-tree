@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0   # need tags for the [skip release] fallback below
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -45,6 +46,33 @@ jobs:
 
       - name: Validate decision tree
         run: node scripts/validate-tree.js
+
+      - name: Compute release version
+        id: ver
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          # Mirrors the formula used by the release job below. On `[skip release]`
+          # runs no new tag will be created, so fall back to the most recent
+          # existing tag (or `dev` if the repo has never tagged a release).
+          if [[ "$COMMIT_MSG" == *"[skip release]"* ]]; then
+            version="$(git describe --tags --abbrev=0 2>/dev/null || echo dev)"
+          else
+            version="v$(date -u +%Y.%m.%d)-${RUN_NUMBER}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Computed release version: $version"
+
+      - name: Inject release version into index.html
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Escape sed delimiter just in case (version is CalVer/ASCII, but be safe).
+          sed -i "s|__RELEASE_VERSION__|${VERSION}|g" index.html
+          grep -n "$VERSION" index.html | head -n 3 || true
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

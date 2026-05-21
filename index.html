@@ -1531,6 +1531,7 @@
       <div class="footer__bottom">
         <span>&copy; 2026 Bill McIlhargey · MIT Licensed · <strong>Independent community helper — not affiliated with Microsoft, not official Microsoft guidance.</strong></span>
         <span>Built as guidance. Verify licensing with your Microsoft account team.</span>
+        <span class="footer__version">Release <a id="release-version" href="https://github.com/billmcilhargey/m365-profiles/releases/tag/__RELEASE_VERSION__" target="_blank" rel="noopener">__RELEASE_VERSION__</a></span>
       </div>
     </div>
   </footer>
@@ -2883,6 +2884,21 @@
 
     initTheme();
     render();
+
+    // Release version: replaced at deploy time by the GitHub Actions build job
+    // (sed-substitutes `__RELEASE_VERSION__` with the CalVer tag). When viewed
+    // outside the CI pipeline (e.g. opening the file locally), the placeholder
+    // is still present — fall back to a friendly "dev build" label that links
+    // to the releases listing. The sentinel is split so sed doesn't rewrite
+    // this check itself.
+    (function () {
+      var SENTINEL = '__RELEASE_' + 'VERSION__';
+      var el = document.getElementById('release-version');
+      if (el && el.textContent === SENTINEL) {
+        el.textContent = 'dev build';
+        el.setAttribute('href', 'https://github.com/billmcilhargey/m365-profiles/releases');
+      }
+    })();
   </script>
 </body>
 </html>
