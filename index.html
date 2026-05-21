@@ -3101,13 +3101,6 @@
       window.open(url, "_blank", "noopener,noreferrer");
     }
 
-    function questionStepNumber() {
-      // Retained for any historical callers — returns the major step number
-      // of the current node, or 0 if the node has no step metadata.
-      const node = TREE[state.currentId];
-      return node && node.step ? node.step.major : 0;
-    }
-
     // -- Step / progress helpers ------------------------------------------------
     // Format the step indicator shown on every interactive screen, e.g.
     // "Step 3.2 of 6 · Service consumption". Optional sub-steps that branch
@@ -3219,7 +3212,7 @@
         none: "none"
       };
       const name = tenantNames[tenant] || tenant;
-      const id = currentResultId(node);
+      const id = state.currentId;
       if (!id) return "";
 
       // Short-circuit advice for SKUs whose security/admin tooling baseline doesn't match any existing row.
@@ -3336,13 +3329,6 @@
       }
 
       return advice;
-    }
-
-    function currentResultId(node) {
-      for (const [k, v] of Object.entries(TREE)) {
-        if (v === node) return k;
-      }
-      return null;
     }
 
     function updateProgress(node) {
@@ -3697,13 +3683,10 @@
       $themeToggle.addEventListener("click", toggleTheme);
     }
 
-    window.answer = answer;
-    window.choose = choose;
-    window.goTo = goTo;
-    window.goBack = goBack;
-    window.restart = restart;
-    window.copySummary = copySummary;
-    window.printReport = printReport;
+    // Top-level `function` declarations in a classic <script> are already on
+    // the global object, so inline onclick handlers can reach answer/choose/
+    // goTo/goBack/restart/copySummary/printReport/onNavReportClick directly —
+    // no explicit `window.X = X` exports needed.
 
     initTheme();
     render();
