@@ -1763,7 +1763,7 @@
     const TREE = {
       start_tenant: {
         choice: true,
-        eyebrow: "Setup · Step 1 · Tenant baseline",
+        step: { major: 1, label: "Tenant baseline" },
         question: "Which Microsoft 365 tenant baseline are you already licensed for?",
         help: "Pick the per-user base SKU your tenant already owns. This sets context so the recommendation tells you what you have to add on top — or whether the feature is already covered. Pick \"No M365 plan yet\" if you're scoping a brand-new tenant.",
         choices: [
@@ -1883,7 +1883,7 @@
       },
       start_choice: {
         choice: true,
-        eyebrow: "Setup · Step 2 · Identity profile",
+        step: { major: 2, label: "Identity profile" },
         question: "Which Microsoft 365 profile are you licensing?",
         help: "Pick the persona that best describes the identity. Each path uses Microsoft Learn and m365maps.com sources to recommend a license.",
         helpLink: { label: "Background — what counts as a privileged admin account", target: "info_privileged_admins" },
@@ -2007,7 +2007,7 @@
         ]
       },
       start: {
-        eyebrow: "Service usage",
+        step: { major: 3, sub: 1, subTotal: 2, label: "Service consumption" },
         question: "Does this privileged admin account sign in to any Microsoft 365 user-facing service (Exchange mailbox, Teams, SharePoint, OneDrive, Office apps)?",
         help: "A properly dedicated privileged admin account should not be used to read mail, join Teams meetings, or open Office documents. If it does consume any of those services, it needs a service license — separate from any admin role — and you should consider splitting it back into a primary + privileged pair.",
         rationale: {
@@ -2028,7 +2028,7 @@
         no: "q_service_principal"
       },
       q_service_principal: {
-        eyebrow: "Account type",
+        step: { major: 3, sub: 2, subTotal: 2, label: "Service consumption" },
         question: "Is this a non-interactive identity — service principal, managed identity, or workload identity with no human sign-in?",
         help: "Per Microsoft guidance, service principals and managed identities are typically excluded from user-targeted Conditional Access and don't consume user licenses. Use managed identities where possible.",
         rationale: {
@@ -2049,7 +2049,7 @@
         no: "q_copilot"
       },
       q_copilot: {
-        eyebrow: "AI & agents",
+        step: { major: 4, sub: 1, subTotal: 5, label: "Premium service features" },
         question: "Will this privileged admin use Microsoft 365 Copilot, build with Copilot Studio grounded in tenant data, or govern AI agents through Microsoft Agent 365 / Security Copilot interactive sessions?",
         help: "Microsoft 365 Copilot is an add-on to an eligible base plan. Microsoft 365 E7 (Frontier Suite, GA May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license.",
         rationale: {
@@ -2070,7 +2070,7 @@
         no: "q_purview_e5"
       },
       q_purview_e5: {
-        eyebrow: "Compliance & Purview",
+        step: { major: 4, sub: 2, subTotal: 5, label: "Premium service features" },
         question: "Is the privileged admin included in any Microsoft Purview E5-tier policy — Insider Risk Management, Communication Compliance, Adaptive Protection, endpoint DLP, premium eDiscovery, auto-labeling, Records Management, Customer Lockbox, Customer Key, Information Barriers, Privileged Access Management for Office, or Audit (Premium)?",
         help: "These Purview features require Microsoft 365 E5, the Microsoft 365 E5 Compliance add-on, or the Microsoft Purview Suite per user in scope — including any admin added as a test user.",
         rationale: {
@@ -2091,7 +2091,7 @@
         no: "q_defender"
       },
       q_defender: {
-        eyebrow: "Defender XDR & security",
+        step: { major: 4, sub: 3, subTotal: 5, label: "Premium service features" },
         question: "Does the privileged admin use Microsoft Defender XDR, Defender for Endpoint Plan 2, Defender for Identity, Defender for Cloud Apps, Defender for Office 365 Plan 2, or operate Microsoft Sentinel as a SOC analyst?",
         help: "Defender for Endpoint P2, Defender for Identity, Defender for Cloud Apps, Defender for Office 365 P2, and the broader Defender XDR experience are part of the Microsoft Defender Suite (formerly E5 Security), included with M365 E5 and E7. Sentinel is billed per-GB in Azure but its operators benefit from Defender Suite as well.",
         rationale: {
@@ -2112,7 +2112,7 @@
         no: "q_intune_suite"
       },
       q_intune_suite: {
-        eyebrow: "Endpoint management",
+        step: { major: 4, sub: 4, subTotal: 5, label: "Premium service features" },
         question: "Does the privileged admin use Microsoft Intune Suite features — Endpoint Privilege Management (EPM), Remote Help, Microsoft Tunnel for MAM, Cloud PKI, Enterprise App Management, or Advanced Endpoint Analytics?",
         help: "These are not in base Intune. They require the Microsoft Intune Suite add-on (or individual standalone add-ons), per user. Base Intune is included in M365 E3/E5/E7 and Business Premium.",
         rationale: {
@@ -2133,7 +2133,7 @@
         no: "q_teams_premium"
       },
       q_teams_premium: {
-        eyebrow: "Teams Premium",
+        step: { major: 4, sub: 5, subTotal: 5, label: "Premium service features" },
         question: "Does the privileged admin host or attend meetings that use Teams Premium features — Advanced webinars, Town halls premium, intelligent meeting recap, real-time translation, branded meetings, premium virtual appointments, or sensitivity-labeled meetings?",
         help: "Teams Premium is a per-user add-on (on top of any plan that includes Teams). It is not bundled with E3/E5 — but E7 (Frontier Suite) does not include it either as of GA. Buy separately for users who need premium meeting features.",
         rationale: {
@@ -2154,7 +2154,7 @@
         no: "q_pim"
       },
       q_pim: {
-        eyebrow: "Privileged access (PIM)",
+        step: { major: 5, sub: 1, subTotal: 4, label: "Premium identity features" },
         question: "Is the privileged admin assigned an Entra ID or Azure role through PIM as eligible / time-bound — or does the account approve or review PIM activations or access reviews?",
         help: "Per the PIM licensing rules, an Entra ID P2 (or Entra ID Governance) license is required for every user who is eligible, time-bound, an approver, or a reviewer. Almost every well-run privileged admin account ends up here.",
         rationale: {
@@ -2175,7 +2175,7 @@
         no: "q_identity_protection"
       },
       q_identity_protection: {
-        eyebrow: "Identity Protection",
+        step: { major: 5, sub: 2, subTotal: 4, label: "Premium identity features" },
         question: "Is this privileged admin account in scope of Microsoft Entra ID Protection — risk-based Conditional Access, premium risk detections, or user / sign-in risk policies?",
         help: "Premium risk detections (atypical travel, password spray, malicious IP, verified threat actor IP, suspicious MFA approval, anomalous token, etc.) and risk-based Conditional Access require Entra ID P2 per user in scope.",
         rationale: {
@@ -2196,7 +2196,7 @@
         no: "q_id_governance"
       },
       q_id_governance: {
-        eyebrow: "Identity Governance",
+        step: { major: 5, sub: 3, subTotal: 4, label: "Premium identity features" },
         question: "Does the privileged admin use Microsoft Entra ID Governance features beyond basic group management — Entitlement Management access packages, Lifecycle Workflows, machine-learning recommendations on access reviews, or Privileged Access Groups governance?",
         help: "These advanced governance features sit in the Entra ID Governance SKU (or the Entra Suite). Standard access reviews on basic groups are P2; lifecycle automation and access packages require Governance.",
         rationale: {
@@ -2217,7 +2217,7 @@
         no: "q_entra_suite"
       },
       q_entra_suite: {
-        eyebrow: "Entra Suite (network + ID)",
+        step: { major: 5, sub: 4, subTotal: 4, label: "Premium identity features" },
         question: "Does the privileged admin operate Entra Suite features — Global Secure Access, Microsoft Entra Internet Access, Microsoft Entra Private Access, Microsoft Entra Verified ID issuance, or unified Conditional Access for network + identity?",
         help: "These cross-network identity capabilities are bundled in the Microsoft Entra Suite (or in M365 E7). They include P2 + ID Governance + Internet/Private Access + Verified ID.",
         rationale: {
@@ -2238,7 +2238,7 @@
         no: "q_break_glass"
       },
       q_break_glass: {
-        eyebrow: "Break-glass",
+        step: { major: 6, label: "Emergency access check" },
         question: "Is this a break-glass / emergency-access account that is explicitly excluded from Conditional Access, PIM, and risk policies?",
         help: "Microsoft recommends excluding emergency-access accounts from Conditional Access to avoid lockout. When excluded from PIM and Identity Protection, they don't trigger the P2 requirement.",
         rationale: {
@@ -2721,9 +2721,21 @@
         ]
       }
     };
+    // Only question nodes / choice nodes carry `step:` metadata — info and result
+    // nodes don't. This sentinel comment is load-bearing: scripts/validate-tree.js
+    // uses it as the regex terminator that bounds the TREE literal extraction.
 
-    // Only question nodes contribute to the step counter — choice/info nodes are setup/learn-more.
-    const TOTAL_STEPS = Object.values(TREE).filter(n => !n.result && !n.choice && !n.info).length;
+    // Total major steps in the assessment journey. The decision tree groups
+    // interactive nodes (choice + question) into six logical phases:
+    //   1. Tenant baseline    (start_tenant)
+    //   2. Identity profile   (start_choice)
+    //   3. Service consumption (sub-steps 3.1, 3.2)
+    //   4. Premium service features (sub-steps 4.1–4.5)
+    //   5. Premium identity features (sub-steps 5.1–5.4)
+    //   6. Emergency access check
+    // Each interactive node carries a `step: { major, sub?, subTotal?, label }`
+    // property that drives both the progress bar percentage and the eyebrow.
+    const TOTAL_MAJOR_STEPS = 6;
 
     const state = {
       currentId: "start_tenant",
@@ -2775,7 +2787,7 @@
         : "";
       $app.innerHTML = `
         ${back}
-        <div class="question-eyebrow">${escapeHtml(node.eyebrow || "Setup")}</div>
+        <div class="question-eyebrow">${escapeHtml(nodeEyebrow(node))}</div>
         <h3 class="question-text">${escapeHtml(node.question)}</h3>
         ${node.help ? `<p class="question-help">${escapeHtml(node.help)}</p>` : ""}
         ${helpLinkHtml}
@@ -2809,12 +2821,11 @@
     }
 
     function renderQuestion(node) {
-      const stepNumber = questionStepNumber();
       const back = backButton();
       const context = renderQuestionContext(node);
       $app.innerHTML = `
         ${back}
-        <div class="question-eyebrow">Step ${stepNumber} of ${TOTAL_STEPS} · ${escapeHtml(node.eyebrow || "")}</div>
+        <div class="question-eyebrow">${escapeHtml(nodeEyebrow(node))}</div>
         <h3 class="question-text">${escapeHtml(node.question)}</h3>
         ${node.help ? `<p class="question-help">${escapeHtml(node.help)}</p>` : ""}
         ${context}
@@ -2968,12 +2979,46 @@
     }
 
     function questionStepNumber() {
-      // Count only history entries whose source node was a question (yes/no), then +1 for current.
-      const completed = state.history.filter(h => {
-        const visited = TREE[h.id];
-        return visited && !visited.choice && !visited.info && !visited.result;
-      }).length;
-      return completed + 1;
+      // Retained for any historical callers — returns the major step number
+      // of the current node, or 0 if the node has no step metadata.
+      const node = TREE[state.currentId];
+      return node && node.step ? node.step.major : 0;
+    }
+
+    // -- Step / progress helpers ------------------------------------------------
+    // Format the step indicator shown on every interactive screen, e.g.
+    // "Step 3.2 of 6 · Service consumption". Falls back to a neutral label if a
+    // node doesn't yet carry step metadata (info / result nodes go through a
+    // dedicated path in updateProgress and never call this).
+    function nodeEyebrow(node) {
+      const s = node && node.step;
+      if (!s) return "";
+      const num = s.sub ? `${s.major}.${s.sub}` : `${s.major}`;
+      return `Step ${num} of ${TOTAL_MAJOR_STEPS} · ${s.label}`;
+    }
+
+    // Compact label shown under the progress bar ("Step 3.2 of 6").
+    function nodeStepShort(node) {
+      const s = node && node.step;
+      if (!s) return "";
+      const num = s.sub ? `${s.major}.${s.sub}` : `${s.major}`;
+      return `Step ${num} of ${TOTAL_MAJOR_STEPS}`;
+    }
+
+    // Compute the progress-bar percentage (0–100) for the given node. Major
+    // steps each own 1/6 of the bar; sub-steps subdivide their slot evenly. We
+    // floor every interactive step at 8% so even Step 1 looks "started".
+    function progressPercent(node) {
+      if (!node) return 0;
+      if (node.result) return 100;
+      const s = node.step;
+      if (!s) return node.info ? 6 : 4;
+      const slot = 100 / TOTAL_MAJOR_STEPS;
+      let pct = (s.major - 1) * slot;
+      if (s.sub && s.subTotal) {
+        pct += ((s.sub - 1) / s.subTotal) * slot;
+      }
+      return Math.max(8, Math.min(100, Math.round(pct)));
     }
 
     function renderWhyTrail() {
@@ -3169,25 +3214,10 @@
     }
 
     function updateProgress(node) {
-      if (node.result) {
-        $progress.style.width = "100%";
-        $stepLabel.textContent = "Result";
-        return;
-      }
-      if (node.choice) {
-        $progress.style.width = "4%";
-        $stepLabel.textContent = "Setup";
-        return;
-      }
-      if (node.info) {
-        $progress.style.width = "6%";
-        $stepLabel.textContent = "Learn more";
-        return;
-      }
-      const step = questionStepNumber();
-      const pct = Math.min(100, Math.round((step - 1) / TOTAL_STEPS * 100) + 8);
-      $progress.style.width = pct + "%";
-      $stepLabel.textContent = `Step ${step} of ${TOTAL_STEPS}`;
+      $progress.style.width = progressPercent(node) + "%";
+      if (node.result) { $stepLabel.textContent = "Result"; return; }
+      if (node.info)   { $stepLabel.textContent = "Learn more"; return; }
+      $stepLabel.textContent = nodeStepShort(node) || "Step";
     }
 
     function answer(value) {
