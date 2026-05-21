@@ -1120,6 +1120,27 @@
     .result-section li { margin: 4px 0; }
     .docs-list a { color: var(--ms-blue); font-size: 14px; }
 
+    /* Sovereign-cloud caveat banner shown on every result when the user came
+       in via the gov_cloud sub-step (Microsoft 365 G3 / G5 paths). Amber
+       framing borrows from the existing .badge-warning palette so it reads
+       as "advisory" without alarming. */
+    .gov-callout {
+      background: #fff8e6;
+      border: 1px solid #f0c040;
+      border-left: 4px solid #ffb900;
+    }
+    .gov-callout h3 { color: #6b4f00; }
+    .gov-callout p { margin: 6px 0; font-size: 14px; color: #5a4500; line-height: 1.5; }
+    .gov-callout__title { font-weight: 600; }
+    .gov-callout a { color: var(--ms-blue); font-weight: 500; }
+    [data-theme="dark"] .gov-callout {
+      background: #3a2a10;
+      border-color: #ffb900;
+    }
+    [data-theme="dark"] .gov-callout h3,
+    [data-theme="dark"] .gov-callout p { color: #ffd58a; }
+    [data-theme="dark"] .gov-callout a { color: #8ec5ff; }
+
     .actions {
       display: flex;
       gap: 10px;
@@ -1827,19 +1848,19 @@
           },
           {
             label: "Microsoft 365 G3 (Government)",
-            sublabel: "US Government — GCC / GCC High / DoD. Equivalent feature shape to E3. Confirm Copilot, Entra Suite, and Defender feature availability in your sovereign cloud before assuming parity.",
+            sublabel: "US Government — GCC / GCC High / DoD. Equivalent feature shape to E3. We'll ask which sovereign cloud next so the recommendation can flag feature-parity caveats.",
             icon: "B",
             tone: "primary",
             value: "g3",
-            target: "start_choice"
+            target: "gov_cloud"
           },
           {
             label: "Microsoft 365 G5 (Government)",
-            sublabel: "US Government — GCC / GCC High / DoD. Equivalent feature shape to E5. Confirm feature availability in your sovereign cloud before assuming parity with commercial E5.",
+            sublabel: "US Government — GCC / GCC High / DoD. Equivalent feature shape to E5. We'll ask which sovereign cloud next so the recommendation can flag feature-parity caveats.",
             icon: "C",
             tone: "primary",
             value: "g5",
-            target: "start_choice"
+            target: "gov_cloud"
           },
           {
             label: "Microsoft 365 E3 — Nonprofit Staff Pricing",
@@ -1857,6 +1878,71 @@
             value: "none",
             target: "start_choice"
           }
+        ]
+      },
+      gov_cloud: {
+        choice: true,
+        step: { major: 1, label: "Government cloud", secondary: true },
+        question: "Which US sovereign cloud is the tenant in?",
+        help: "Microsoft 365 Government tenants run in separately accredited environments. Feature availability, compliance accreditations, and licensing parity differ for each — this selection drives a sovereign-cloud caveat shown on every result.",
+        helpLink: { label: "Background — sovereign cloud feature parity & compliance", target: "info_sovereign_cloud" },
+        choices: [
+          {
+            label: "GCC (Government Community Cloud)",
+            sublabel: "FedRAMP High / DoD IL2. Multi-tenant on commercial Azure with US-only data residency. Most M365 commercial features land in GCC with a multi-week to multi-month delay.",
+            icon: "1",
+            tone: "primary",
+            value: "gcc",
+            target: "start_choice"
+          },
+          {
+            label: "GCC High",
+            sublabel: "FedRAMP High / DoD IL4 / DFARS 7012 / ITAR / EAR. Isolated cloud, preferred for the Defense Industrial Base and CMMC Level 2 / 3 contractors handling CUI. Feature parity lags commercial.",
+            icon: "2",
+            tone: "primary",
+            value: "gcc_high",
+            target: "start_choice"
+          },
+          {
+            label: "DoD",
+            sublabel: "DoD IL5. US Department of Defense only — isolated cloud, most restrictive feature parity of the unclassified clouds.",
+            icon: "3",
+            tone: "primary",
+            value: "dod",
+            target: "start_choice"
+          },
+          {
+            label: "Microsoft 365 Air-Gapped (Top Secret / DoD IL6)",
+            sublabel: "Classified workloads on physically separated infrastructure. Commercial-feature parity is intentionally limited — verify every premium SKU on the Air-Gapped product page before purchase.",
+            icon: "4",
+            tone: "primary",
+            value: "il6",
+            target: "start_choice"
+          }
+        ]
+      },
+      info_sovereign_cloud: {
+        info: true,
+        badge: "Background",
+        badgeClass: "badge-info",
+        title: "US Government clouds — feature parity & compliance",
+        sub: "Microsoft's government clouds are separately accredited environments with different feature roadmaps.",
+        paragraphs: [
+          "GCC (Government Community Cloud) is a multi-tenant environment that runs on commercial Microsoft 365 infrastructure with FedRAMP High accreditation, DoD IL2 reauthorization, and US-only data residency. Most M365 commercial features are available, usually with a feature-parity delay measured in weeks to months.",
+          "GCC High is a physically and logically isolated cloud accredited at FedRAMP High and DoD IL4. It supports DFARS 7012, ITAR, and EAR controls — making it the preferred environment for the Defense Industrial Base (DIB) and CMMC Level 2 / Level 3 contractors who handle Controlled Unclassified Information (CUI). Feature parity lags commercial by 6–18 months for many capabilities; Microsoft 365 Copilot, parts of the Entra Suite (Global Secure Access, Verified ID), and the newest Defender XDR features ship later — or not at all.",
+          "DoD is the most restricted unclassified cloud — DoD IL5, US Department of Defense only. Feature roadmap typically trails GCC High by another quarter or two.",
+          "Microsoft 365 Air-Gapped (Top Secret / DoD IL6) serves classified workloads on physically separated infrastructure. Commercial-feature parity is intentionally limited — verify every premium SKU against the Air-Gapped product page before purchasing.",
+          "Compliance context: CMMC Level 2 / Level 3 contractors handling CUI typically need GCC High or DoD, not GCC. Commercial M365 tenants generally cannot meet DFARS 7012 export-control requirements regardless of which premium SKUs are added."
+        ],
+        docs: [
+          ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"],
+          ["Microsoft 365 Government — GCC service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc"],
+          ["US Government CMMC compliance", "https://learn.microsoft.com/compliance/us-government/gov-cmmc"],
+          ["Compliance between Commercial, Government, DoD & Secret offerings (Microsoft TechCommunity)", "https://techcommunity.microsoft.com/blog/publicsectorblog/understanding-compliance-between-commercial-government-dod--secret-offerings---m/4225436"]
+        ],
+        actions: [
+          { label: "Continue → pick your government cloud", target: "gov_cloud", tone: "primary" },
+          { label: "← Back to tenant baseline", target: "start_tenant", tone: "secondary" }
         ]
       },
       start_choice: {
@@ -2852,6 +2938,7 @@
       const tenant = selectedTenantValue();
       const tenantLabel = selectedTenantLabel();
       const tenantNote = tenantHint(node, tenant);
+      const govCalloutHtml = renderGovCloudCallout();
       const docsHtml = linkListHtml(node.docs);
       const bulletsHtml = (node.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join("");
       const whyHtml = renderWhyTrail();
@@ -2871,7 +2958,7 @@
           <div class="print-only print-header">
             <p class="print-header__title">M365 Profiles — licensing decision</p>
             <p class="print-header__meta">
-              Tenant baseline: ${escapeHtml(tenantLabel)} · Generated ${escapeHtml(printedOn)}
+              Tenant baseline: ${escapeHtml(tenantLabel)}${govCloudFromHistory() ? ` · Sovereign cloud: ${escapeHtml(govCloudLabel(govCloudFromHistory()))}` : ""} · Generated ${escapeHtml(printedOn)}
             </p>
           </div>
 
@@ -2880,6 +2967,8 @@
             <h3 class="result-title">${escapeHtml(node.title)}</h3>
             <p class="result-sub">${escapeHtml(node.sub)}</p>
           </div>
+
+          ${govCalloutHtml}
 
           ${node.decisionBasis ? `
           <div class="result-basis">
@@ -2973,7 +3062,9 @@
     function reportIssueFromAssessment() {
       const node = TREE[state.currentId];
       const stepText = node && node.step
-        ? `Step ${node.step.sub ? `${node.step.major}.${node.step.sub}` : node.step.major} of ${TOTAL_MAJOR_STEPS} · ${node.step.label}`
+        ? (node.step.secondary
+            ? `Step ${node.step.major}b · ${node.step.label}`
+            : `Step ${node.step.sub ? `${node.step.major}.${node.step.sub}` : node.step.major} of ${TOTAL_MAJOR_STEPS} · ${node.step.label}`)
         : "Assessment";
       const screenText = node ? (node.question || node.title || "(no title)") : "(no current node)";
       const titleSeed = screenText.length > 60 ? screenText.slice(0, 57) + "\u2026" : screenText;
@@ -3004,12 +3095,16 @@
 
     // -- Step / progress helpers ------------------------------------------------
     // Format the step indicator shown on every interactive screen, e.g.
-    // "Step 3.2 of 6 · Service consumption". Falls back to a neutral label if a
-    // node doesn't yet carry step metadata (info / result nodes go through a
-    // dedicated path in updateProgress and never call this).
+    // "Step 3.2 of 6 · Service consumption". Optional sub-steps that branch
+    // off a major (e.g. the government-cloud picker) carry step.secondary and
+    // render as "Step 1b · ..." so they don't disturb the major numbering.
+    // Falls back to a neutral label if a node doesn't yet carry step metadata
+    // (info / result nodes go through a dedicated path in updateProgress and
+    // never call this).
     function nodeEyebrow(node) {
       const s = node && node.step;
       if (!s) return "";
+      if (s.secondary) return `Step ${s.major}b · ${s.label}`;
       const num = s.sub ? `${s.major}.${s.sub}` : `${s.major}`;
       return `Step ${num} of ${TOTAL_MAJOR_STEPS} · ${s.label}`;
     }
@@ -3018,13 +3113,16 @@
     function nodeStepShort(node) {
       const s = node && node.step;
       if (!s) return "";
+      if (s.secondary) return `Step ${s.major}b`;
       const num = s.sub ? `${s.major}.${s.sub}` : `${s.major}`;
       return `Step ${num} of ${TOTAL_MAJOR_STEPS}`;
     }
 
     // Compute the progress-bar percentage (0–100) for the given node. Major
-    // steps each own 1/6 of the bar; sub-steps subdivide their slot evenly. We
-    // floor every interactive step at 8% so even Step 1 looks "started".
+    // steps each own 1/6 of the bar; sub-steps subdivide their slot evenly.
+    // Optional secondary sub-steps (e.g. gov_cloud) sit 70% through their
+    // slot so the bar visibly advances past the major they branch off of.
+    // We floor every interactive step at 8% so even Step 1 looks "started".
     function progressPercent(node) {
       if (!node) return 0;
       if (node.result) return 100;
@@ -3032,7 +3130,9 @@
       if (!s) return node.info ? 6 : 4;
       const slot = 100 / TOTAL_MAJOR_STEPS;
       let pct = (s.major - 1) * slot;
-      if (s.sub && s.subTotal) {
+      if (s.secondary) {
+        pct += 0.7 * slot;
+      } else if (s.sub && s.subTotal) {
         pct += ((s.sub - 1) / s.subTotal) * slot;
       }
       return Math.max(8, Math.min(100, Math.round(pct)));
@@ -3312,6 +3412,68 @@
       return entry ? entry.answer : "Not selected";
     }
 
+    // Look up which US sovereign cloud the user picked at gov_cloud (only
+    // populated when they came in via Microsoft 365 G3 / G5). Returns the
+    // last-seen choice value so backtracking + re-picking works, or null if
+    // the user is on a commercial / business / education / nonprofit path.
+    function govCloudFromHistory() {
+      for (let i = state.history.length - 1; i >= 0; i--) {
+        const h = state.history[i];
+        if (h.id === "gov_cloud" && h.value) return h.value;
+      }
+      return null;
+    }
+
+    // Friendly label for the sovereign cloud (used by the Copy summary and
+    // the printed/PDF report header).
+    function govCloudLabel(cloud) {
+      return {
+        gcc: "GCC (Government Community Cloud)",
+        gcc_high: "GCC High",
+        dod: "DoD (IL5)",
+        il6: "Microsoft 365 Air-Gapped (Top Secret / DoD IL6)"
+      }[cloud] || cloud;
+    }
+
+    // Sovereign-cloud caveat banner shown on every result when the user came
+    // in through the gov_cloud picker. The content varies by cloud because
+    // feature parity, accreditations, and gotchas differ materially between
+    // GCC, GCC High, DoD, and Air-Gapped.
+    function renderGovCloudCallout() {
+      const cloud = govCloudFromHistory();
+      if (!cloud) return "";
+      const info = {
+        gcc: {
+          title: "GCC tenant — confirm feature availability before purchase",
+          body: "Most Microsoft 365 commercial features land in GCC, typically with a multi-week to multi-month delay. Confirm every premium SKU below against the GCC service description, especially Microsoft 365 Copilot, Entra Suite components (Global Secure Access, Verified ID), and the newest Defender XDR / Sentinel capabilities.",
+          link: ["GCC service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc"]
+        },
+        gcc_high: {
+          title: "GCC High tenant — feature parity lags commercial",
+          body: "GCC High is FedRAMP High / DoD IL4 / DFARS 7012 / ITAR / EAR-controlled. Several features in this recommendation may ship later than commercial or not at all — notably Microsoft 365 Copilot, Microsoft 365 Agent 365, parts of the Entra Suite, and the newest Defender XDR features. CMMC Level 2 / 3 contractors handling CUI typically need GCC High or DoD.",
+          link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
+        },
+        dod: {
+          title: "DoD (IL5) tenant — most restrictive unclassified cloud",
+          body: "Microsoft 365 DoD ships on an IL5-accredited isolated cloud. Feature parity typically trails GCC High by another quarter. Many premium features in this recommendation — Copilot, Agent 365, parts of the Entra Suite, certain Teams Premium and Defender XDR capabilities — may not yet be available. Always verify with the GCC High and DoD service description and your Microsoft federal account team.",
+          link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
+        },
+        il6: {
+          title: "Microsoft 365 Air-Gapped tenant — classified workloads (DoD IL6)",
+          body: "Air-Gapped clouds run on physically separated infrastructure for classified workloads. Commercial-feature parity is intentionally limited. Treat this recommendation as a commercial-baseline reference — verify each premium SKU against the Air-Gapped product documentation before purchase, and engage your Microsoft federal account team for authoritative entitlements.",
+          link: ["Compliance between Commercial, Government, DoD & Secret offerings", "https://techcommunity.microsoft.com/blog/publicsectorblog/understanding-compliance-between-commercial-government-dod--secret-offerings---m/4225436"]
+        }
+      }[cloud];
+      if (!info) return "";
+      return `
+        <div class="result-section gov-callout">
+          <h3>Sovereign cloud caveat — ${escapeHtml(govCloudLabel(cloud))}</h3>
+          <p class="gov-callout__title">${escapeHtml(info.title)}</p>
+          <p>${escapeHtml(info.body)}</p>
+          <p><a href="${escapeAttr(info.link[1])}" target="_blank" rel="noopener">${escapeHtml(info.link[0])} &nearr;</a></p>
+        </div>`;
+    }
+
     // Trigger the browser's print dialog. The user can pick "Save as PDF" as
     // the destination on macOS / Windows / Linux / iOS / Android. The print
     // stylesheet hides chrome and reveals the disclaimer header/footer.
@@ -3325,10 +3487,12 @@
       const node = TREE[state.currentId];
       if (!node || !node.result) { flash("Copy summary is only available on a result screen"); return; }
       const tenant = selectedTenantLabel();
+      const cloud = govCloudFromHistory();
       const lines = [
         `M365 Profiles — licensing decision`,
         `Generated: ${new Date().toLocaleString()}`,
         `Tenant baseline: ${tenant}`,
+        ...(cloud ? [`Sovereign cloud: ${govCloudLabel(cloud)}`] : []),
         ``,
         `Result: ${node.title}`,
         `${node.sub}`,
