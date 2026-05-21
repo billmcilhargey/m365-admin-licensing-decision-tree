@@ -2963,7 +2963,7 @@
           <div class="actions">
             <button class="btn btn-yes" onclick="restart()">Start over</button>
             <button class="btn btn-secondary" onclick="copySummary()">Copy summary</button>
-            <button class="btn btn-secondary" onclick="printReport()">Print / Save as PDF</button>
+            <button class="btn btn-secondary" onclick="downloadPdf()">Download PDF</button>
           </div>`;
       $app.innerHTML = `
         ${back}
@@ -3434,35 +3434,40 @@
       }[cloud] || cloud;
     }
 
+    // Sovereign-cloud caveat data — shared between renderGovCloudCallout
+    // (which renders an HTML banner on every result) and the PDF generator
+    // (which emits a plain-text section). The content varies by cloud
+    // because feature parity, accreditations, and gotchas differ materially
+    // between GCC, GCC High, DoD, and Air-Gapped.
+    const GOV_CLOUD_INFO = {
+      gcc: {
+        title: "GCC tenant — confirm feature availability before purchase",
+        body: "Most Microsoft 365 commercial features land in GCC, typically with a multi-week to multi-month delay. Confirm every premium SKU below against the GCC service description, especially Microsoft 365 Copilot, Entra Suite components (Global Secure Access, Verified ID), and the newest Defender XDR / Sentinel capabilities.",
+        link: ["GCC service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc"]
+      },
+      gcc_high: {
+        title: "GCC High tenant — feature parity lags commercial",
+        body: "GCC High is FedRAMP High / DoD IL4 / DFARS 7012 / ITAR / EAR-controlled. Several features in this recommendation may ship later than commercial or not at all — notably Microsoft 365 Copilot, Microsoft 365 Agent 365, parts of the Entra Suite, and the newest Defender XDR features. CMMC Level 2 / 3 contractors handling CUI typically need GCC High or DoD.",
+        link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
+      },
+      dod: {
+        title: "DoD (IL5) tenant — most restrictive unclassified cloud",
+        body: "Microsoft 365 DoD ships on an IL5-accredited isolated cloud. Feature parity typically trails GCC High by another quarter. Many premium features in this recommendation — Copilot, Agent 365, parts of the Entra Suite, certain Teams Premium and Defender XDR capabilities — may not yet be available. Always verify with the GCC High and DoD service description and your Microsoft federal account team.",
+        link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
+      },
+      il6: {
+        title: "Microsoft 365 Air-Gapped tenant — classified workloads (DoD IL6)",
+        body: "Air-Gapped clouds run on physically separated infrastructure for classified workloads. Commercial-feature parity is intentionally limited. Treat this recommendation as a commercial-baseline reference — verify each premium SKU against the Air-Gapped product documentation before purchase, and engage your Microsoft federal account team for authoritative entitlements.",
+        link: ["Compliance between Commercial, Government, DoD & Secret offerings", "https://techcommunity.microsoft.com/blog/publicsectorblog/understanding-compliance-between-commercial-government-dod--secret-offerings---m/4225436"]
+      }
+    };
+
     // Sovereign-cloud caveat banner shown on every result when the user came
-    // in through the gov_cloud picker. The content varies by cloud because
-    // feature parity, accreditations, and gotchas differ materially between
-    // GCC, GCC High, DoD, and Air-Gapped.
+    // in through the gov_cloud picker.
     function renderGovCloudCallout() {
       const cloud = govCloudFromHistory();
       if (!cloud) return "";
-      const info = {
-        gcc: {
-          title: "GCC tenant — confirm feature availability before purchase",
-          body: "Most Microsoft 365 commercial features land in GCC, typically with a multi-week to multi-month delay. Confirm every premium SKU below against the GCC service description, especially Microsoft 365 Copilot, Entra Suite components (Global Secure Access, Verified ID), and the newest Defender XDR / Sentinel capabilities.",
-          link: ["GCC service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc"]
-        },
-        gcc_high: {
-          title: "GCC High tenant — feature parity lags commercial",
-          body: "GCC High is FedRAMP High / DoD IL4 / DFARS 7012 / ITAR / EAR-controlled. Several features in this recommendation may ship later than commercial or not at all — notably Microsoft 365 Copilot, Microsoft 365 Agent 365, parts of the Entra Suite, and the newest Defender XDR features. CMMC Level 2 / 3 contractors handling CUI typically need GCC High or DoD.",
-          link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
-        },
-        dod: {
-          title: "DoD (IL5) tenant — most restrictive unclassified cloud",
-          body: "Microsoft 365 DoD ships on an IL5-accredited isolated cloud. Feature parity typically trails GCC High by another quarter. Many premium features in this recommendation — Copilot, Agent 365, parts of the Entra Suite, certain Teams Premium and Defender XDR capabilities — may not yet be available. Always verify with the GCC High and DoD service description and your Microsoft federal account team.",
-          link: ["GCC High and DoD service description", "https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-us-government/gcc-high-and-dod"]
-        },
-        il6: {
-          title: "Microsoft 365 Air-Gapped tenant — classified workloads (DoD IL6)",
-          body: "Air-Gapped clouds run on physically separated infrastructure for classified workloads. Commercial-feature parity is intentionally limited. Treat this recommendation as a commercial-baseline reference — verify each premium SKU against the Air-Gapped product documentation before purchase, and engage your Microsoft federal account team for authoritative entitlements.",
-          link: ["Compliance between Commercial, Government, DoD & Secret offerings", "https://techcommunity.microsoft.com/blog/publicsectorblog/understanding-compliance-between-commercial-government-dod--secret-offerings---m/4225436"]
-        }
-      }[cloud];
+      const info = GOV_CLOUD_INFO[cloud];
       if (!info) return "";
       return `
         <div class="result-section gov-callout">
@@ -3473,13 +3478,290 @@
         </div>`;
     }
 
-    // Trigger the browser's print dialog. The user can pick "Save as PDF" as
-    // the destination on macOS / Windows / Linux / iOS / Android. The print
-    // stylesheet hides chrome and reveals the disclaimer header/footer.
-    function printReport() {
+    // =================================================================
+    // PDF report generation
+    // =================================================================
+    // Builds a real, self-contained PDF byte stream from the current
+    // result + history and triggers a browser download. No third-party
+    // libraries — the PDF format is plain text + a tiny binary marker, so
+    // ~200 lines of vanilla JS is enough. Uses the three standard
+    // Helvetica fonts (Regular / Bold / Oblique) so no font embedding is
+    // needed. Strings are emitted as WinAnsiEncoding (CP1252), which
+    // covers em-dash, en-dash, smart quotes, ellipsis, bullet; characters
+    // outside CP1252 (arrows, etc.) fall back to ASCII equivalents.
+
+    // CP1252 byte values for the common "extended" punctuation in this
+    // app's copy. Anything not listed here that's < U+0100 is already
+    // Latin-1 and emitted directly via octal escape.
+    const PDF_WIN_ANSI = {
+      "\u20AC": 0x80, "\u201A": 0x82, "\u0192": 0x83, "\u201E": 0x84,
+      "\u2026": 0x85, "\u2020": 0x86, "\u2021": 0x87, "\u02C6": 0x88,
+      "\u2030": 0x89, "\u0160": 0x8A, "\u2039": 0x8B, "\u0152": 0x8C,
+      "\u017D": 0x8E, "\u2018": 0x91, "\u2019": 0x92, "\u201C": 0x93,
+      "\u201D": 0x94, "\u2022": 0x95, "\u2013": 0x96, "\u2014": 0x97,
+      "\u02DC": 0x98, "\u2122": 0x99, "\u0161": 0x9A, "\u203A": 0x9B,
+      "\u0153": 0x9C, "\u017E": 0x9E, "\u0178": 0x9F
+    };
+
+    // ASCII fallbacks for characters outside CP1252 that appear in this
+    // app's copy (mostly arrows used in UI affordances).
+    const PDF_ASCII_FALLBACK = {
+      "\u2192": "->", "\u2190": "<-", "\u2197": "(new tab)",
+      "\u21D2": "=>", "\u00A0": " ", "\u200B": ""
+    };
+
+    function pdfEscapeChar(ch) {
+      if (ch === "(" || ch === ")" || ch === "\\") return "\\" + ch;
+      if (ch === "\n") return "\\n";
+      if (ch === "\r") return "\\r";
+      if (ch === "\t") return "\\t";
+      const code = ch.charCodeAt(0);
+      if (code < 0x80) return ch;
+      if (code < 0x100) return "\\" + code.toString(8).padStart(3, "0");
+      const winAnsi = PDF_WIN_ANSI[ch];
+      if (winAnsi !== undefined) return "\\" + winAnsi.toString(8).padStart(3, "0");
+      return "?";
+    }
+
+    function pdfEscapeString(str) {
+      let out = "";
+      for (const ch of String(str)) {
+        const fb = PDF_ASCII_FALLBACK[ch];
+        if (fb !== undefined) { for (const c of fb) out += pdfEscapeChar(c); continue; }
+        out += pdfEscapeChar(ch);
+      }
+      return out;
+    }
+
+    // Naive monospace-style word wrap. Helvetica is proportional but we
+    // pick conservative chars-per-line counts per style so a worst-case
+    // line still fits within the page margins. Hard-breaks any single
+    // word longer than maxChars (typically a long URL).
+    function pdfWrapText(text, maxChars) {
+      if (!text) return [""];
+      const paragraphs = String(text).split("\n");
+      const out = [];
+      for (const para of paragraphs) {
+        if (!para) { out.push(""); continue; }
+        const words = para.split(/\s+/).filter(Boolean);
+        let cur = "";
+        for (let w of words) {
+          while (w.length > maxChars) {
+            if (cur) { out.push(cur); cur = ""; }
+            out.push(w.slice(0, maxChars));
+            w = w.slice(maxChars);
+          }
+          if (!cur) { cur = w; continue; }
+          if ((cur + " " + w).length <= maxChars) cur += " " + w;
+          else { out.push(cur); cur = w; }
+        }
+        if (cur) out.push(cur);
+      }
+      return out;
+    }
+
+    // Lay out blocks → place lines on pages → emit a valid PDF byte array.
+    // Each block is { style, text, url? }. Style controls font, size,
+    // line-height, vertical spacing, indent, and wrap width.
+    function generatePdf(blocks, meta) {
+      const PAGE_W = 612, PAGE_H = 792;
+      const MARGIN_X = 54, MARGIN_TOP = 60, MARGIN_BOT = 60;
+      const FOOTER_RESERVE = 24;
+
+      const STYLES = {
+        h1:     { font: "F2", size: 18, lh: 24, before: 0,  after: 10, chars: 50, indent: 0  },
+        h2:     { font: "F2", size: 13, lh: 18, before: 14, after: 4,  chars: 68, indent: 0  },
+        meta:   { font: "F3", size:  9, lh: 13, before: 0,  after: 2,  chars: 98, indent: 0  },
+        p:      { font: "F1", size: 10, lh: 14, before: 2,  after: 4,  chars: 90, indent: 0  },
+        bullet: { font: "F1", size: 10, lh: 14, before: 0,  after: 2,  chars: 85, indent: 14 },
+        link:   { font: "F1", size:  9, lh: 13, before: 0,  after: 2,  chars: 98, indent: 14 },
+        small:  { font: "F3", size:  8, lh: 12, before: 10, after: 0,  chars: 110, indent: 0 }
+      };
+
+      const pages = [{ lines: [], links: [] }];
+      let pi = 0;
+      let y = PAGE_H - MARGIN_TOP;
+
+      function newPage() { pages.push({ lines: [], links: [] }); pi++; y = PAGE_H - MARGIN_TOP; }
+      function ensureRoom(lh) { if (y - lh < MARGIN_BOT + FOOTER_RESERVE) newPage(); }
+
+      for (const block of blocks) {
+        const style = STYLES[block.style] || STYLES.p;
+        y -= style.before;
+        const prefix = block.style === "bullet" ? "\u2022 " : "";
+        const lines = pdfWrapText(prefix + (block.text || ""), style.chars);
+        for (let i = 0; i < lines.length; i++) {
+          ensureRoom(style.lh);
+          const lineText = lines[i];
+          const x = MARGIN_X + (i > 0 && style.indent ? style.indent : 0);
+          const lineY = y - style.size;
+          pages[pi].lines.push({ font: style.font, size: style.size, x, y: lineY, text: lineText });
+          if (block.url) {
+            // Approximate Helvetica glyph width ≈ 0.55 × point size.
+            const w = lineText.length * style.size * 0.55;
+            const h = style.size + 2;
+            pages[pi].links.push({ x, y: lineY - 2, w, h, url: block.url });
+          }
+          y -= style.lh;
+        }
+        y -= style.after;
+      }
+
+      // Footer on every page (generation stamp + page n of N).
+      for (let p = 0; p < pages.length; p++) {
+        const footerY = MARGIN_BOT - 16;
+        pages[p].lines.push({ font: "F3", size: 8, x: MARGIN_X, y: footerY, text: meta.footerLeft });
+        const pageNum = `Page ${p + 1} of ${pages.length}`;
+        const approxW = pageNum.length * 8 * 0.55;
+        pages[p].lines.push({ font: "F3", size: 8, x: PAGE_W - MARGIN_X - approxW, y: footerY, text: pageNum });
+      }
+
+      // -- Assemble PDF objects -----------------------------------------
+      // Object layout: Catalog, Pages, 3 Fonts, then per page:
+      // [Page, Contents, ...Annots]. Two-pass: build object bodies as
+      // strings, then serialize with computed byte offsets for the xref.
+      const objects = [];
+      function reserve() { objects.push(null); return objects.length; }
+      function set(id, body) { objects[id - 1] = body; }
+
+      const catalogId = reserve();
+      const pagesId   = reserve();
+      const fontReg   = reserve();
+      const fontBold  = reserve();
+      const fontItal  = reserve();
+
+      set(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+      set(fontReg,  `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`);
+      set(fontBold, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`);
+      set(fontItal, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>`);
+
+      const pageIds = [];
+      for (const page of pages) {
+        const pageId = reserve();
+        const contentsId = reserve();
+        pageIds.push(pageId);
+
+        let stream = "";
+        for (const line of page.lines) {
+          stream += `BT /${line.font} ${line.size} Tf ${line.x.toFixed(2)} ${line.y.toFixed(2)} Td (${pdfEscapeString(line.text)}) Tj ET\n`;
+        }
+        set(contentsId, `<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+
+        const annotIds = page.links.map(link => {
+          const aId = reserve();
+          const rect = `${link.x.toFixed(2)} ${link.y.toFixed(2)} ${(link.x + link.w).toFixed(2)} ${(link.y + link.h).toFixed(2)}`;
+          set(aId, `<< /Type /Annot /Subtype /Link /Rect [${rect}] /Border [0 0 0] /A << /Type /Action /S /URI /URI (${pdfEscapeString(link.url)}) >> >>`);
+          return aId;
+        });
+        const annots = annotIds.length ? `/Annots [${annotIds.map(id => id + " 0 R").join(" ")}] ` : "";
+
+        set(pageId, `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Contents ${contentsId} 0 R ${annots}/Resources << /Font << /F1 ${fontReg} 0 R /F2 ${fontBold} 0 R /F3 ${fontItal} 0 R >> >> >>`);
+      }
+
+      set(pagesId, `<< /Type /Pages /Kids [${pageIds.map(id => id + " 0 R").join(" ")}] /Count ${pageIds.length} >>`);
+
+      // -- Serialize ----------------------------------------------------
+      const HEADER = "%PDF-1.4\n%\xC2\xC5\xC2\xC5\n";
+      const parts = [HEADER];
+      const offsets = [0];
+      let pos = HEADER.length;
+      for (let i = 0; i < objects.length; i++) {
+        const body = `${i + 1} 0 obj\n${objects[i]}\nendobj\n`;
+        offsets.push(pos);
+        parts.push(body);
+        pos += body.length;
+      }
+      const xrefStart = pos;
+      let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+      for (let i = 1; i <= objects.length; i++) {
+        xref += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+      }
+      parts.push(xref);
+      parts.push(`trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`);
+
+      // Pack as Latin-1 bytes. Every character we emit is < 0x100 (header
+      // binary marker uses 0xC2 0xC5; literal-string content uses ASCII
+      // plus octal escapes; metadata is ASCII).
+      const fullText = parts.join("");
+      const bytes = new Uint8Array(fullText.length);
+      for (let i = 0; i < fullText.length; i++) bytes[i] = fullText.charCodeAt(i) & 0xFF;
+      return bytes;
+    }
+
+    // Build the report content blocks for the current result and trigger
+    // a browser download of the generated PDF.
+    function downloadPdf() {
       const node = TREE[state.currentId];
-      if (!node || !node.result) { flash("Print / PDF is only available on a result screen"); return; }
-      window.print();
+      if (!node || !node.result) { flash("Download PDF is only available on a result screen"); return; }
+
+      const tenant = selectedTenantLabel();
+      const cloud  = govCloudFromHistory();
+      const stamp  = new Date().toLocaleString();
+
+      const blocks = [];
+      blocks.push({ style: "h1", text: "M365 Profiles — Licensing Recommendation" });
+      blocks.push({ style: "meta", text: `Generated ${stamp}` });
+      blocks.push({ style: "meta", text: `Tenant baseline: ${tenant}` });
+      if (cloud) blocks.push({ style: "meta", text: `Sovereign cloud: ${govCloudLabel(cloud)}` });
+
+      if (node.badge) blocks.push({ style: "h2", text: node.badge });
+      blocks.push({ style: "h1", text: node.title });
+      if (node.sub) blocks.push({ style: "p", text: node.sub });
+
+      if (node.decisionBasis) {
+        blocks.push({ style: "h2", text: "Why this is the recommendation" });
+        blocks.push({ style: "p", text: node.decisionBasis });
+      }
+
+      if (cloud && GOV_CLOUD_INFO[cloud]) {
+        const info = GOV_CLOUD_INFO[cloud];
+        blocks.push({ style: "h2", text: `Sovereign cloud caveat — ${govCloudLabel(cloud)}` });
+        blocks.push({ style: "p", text: info.title });
+        blocks.push({ style: "p", text: info.body });
+        blocks.push({ style: "link", text: `${info.link[0]} — ${info.link[1]}`, url: info.link[1] });
+      }
+
+      if (node.bullets && node.bullets.length) {
+        blocks.push({ style: "h2", text: "What to do" });
+        for (const b of node.bullets) blocks.push({ style: "bullet", text: b });
+      }
+
+      if (state.history.length) {
+        blocks.push({ style: "h2", text: "Decision path" });
+        state.history.forEach((h, i) => {
+          const n = i + 1;
+          let line;
+          if (h.kind === "choice") line = `${n}. ${h.questionText} — ${h.answer}`;
+          else if (h.kind === "info" || h.kind === "nav" || h.kind === "result-jump") line = `${n}. ${h.questionText} (continue)`;
+          else line = `${n}. ${h.questionText} — ${String(h.answer).toUpperCase()}`;
+          blocks.push({ style: "bullet", text: line });
+        });
+      }
+
+      if (node.docs && node.docs.length) {
+        blocks.push({ style: "h2", text: "Microsoft documentation" });
+        for (const [label, url] of node.docs) {
+          blocks.push({ style: "link", text: `${label} — ${url}`, url });
+        }
+      }
+
+      blocks.push({
+        style: "small",
+        text: "Disclaimer: Not official Microsoft advice. This recommendation is generated by an independent community decision tree at https://billmcilhargey.github.io/m365-profiles/. Verify SKUs, entitlements, and pricing with your Microsoft account team or licensing partner. Microsoft Product Terms are the source of truth."
+      });
+
+      const bytes = generatePdf(blocks, { footerLeft: `m365-profiles · ${stamp}` });
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `m365-profiles-report-${today}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      flash("PDF downloaded");
     }
 
     function copySummary() {
@@ -3683,7 +3965,7 @@
 
     // Top-level `function` declarations in a classic <script> are already on
     // the global object, so inline onclick handlers can reach answer/choose/
-    // goTo/goBack/restart/copySummary/printReport/onNavReportClick directly —
+    // goTo/goBack/restart/copySummary/downloadPdf/onNavReportClick directly —
     // no explicit `window.X = X` exports needed.
 
     initTheme();
