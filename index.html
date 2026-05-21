@@ -4348,21 +4348,34 @@
       const MARGIN_BOT = FOOTER_RESERVE + 10;
 
       const STYLES = {
-        title:    { font: "F2", size: 22, lh: 28, before:  0, after:  4, chars: 42, indent:  0 },
-        subtitle: { font: "F3", size: 13, lh: 18, before:  2, after: 14, chars: 70, indent:  0 },
-        h1:       { font: "F2", size: 16, lh: 22, before:  8, after:  6, chars: 56, indent:  0 },
-        h2:       { font: "F2", size: 12, lh: 16, before: 14, after:  4, chars: 72, indent:  0 },
-        section:  { font: "F2", size: 13, lh: 18, before: 18, after:  6, chars: 70, indent:  0 },
-        kv:       { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 92, indent:  0 },
-        meta:     { font: "F3", size:  9, lh: 13, before:  0, after:  2, chars: 98, indent:  0 },
-        p:        { font: "F1", size: 10, lh: 14, before:  2, after:  4, chars: 90, indent:  0 },
-        bullet:   { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 84, indent: 14 },
-        numbered: { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 82, indent: 18 },
-        link:     { font: "F1", size:  9, lh: 13, before:  0, after:  2, chars: 96, indent: 14 },
-        ref:      { font: "F1", size:  9, lh: 13, before:  0, after:  4, chars: 92, indent: 22 },
-        callout:  { font: "F3", size:  8, lh: 12, before: 16, after:  0, chars: 96, indent:  0 },
-        small:    { font: "F3", size:  8, lh: 12, before:  6, after:  0, chars: 110, indent: 0 },
-        rule:     { font: "F1", size:  1, lh:  6, before:  4, after:  6, chars:  1, indent:  0 }
+        title:        { font: "F2", size: 22, lh: 28, before:  0, after:  4, chars:  42, indent:  0 },
+        subtitle:     { font: "F3", size: 13, lh: 18, before:  2, after: 14, chars:  70, indent:  0 },
+        h1:           { font: "F2", size: 16, lh: 22, before:  8, after:  6, chars:  56, indent:  0 },
+        h2:           { font: "F2", size: 12, lh: 16, before: 14, after:  4, chars:  72, indent:  0 },
+        section:      { font: "F2", size: 13, lh: 18, before: 18, after:  6, chars:  70, indent:  0 },
+        kv:           { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars:  92, indent:  0 },
+        meta:         { font: "F3", size:  9, lh: 13, before:  0, after:  2, chars:  98, indent:  0 },
+        p:            { font: "F1", size: 10, lh: 14, before:  2, after:  4, chars:  90, indent:  0 },
+        bullet:       { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars:  84, indent: 14 },
+        numbered:     { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars:  82, indent: 18 },
+        link:         { font: "F1", size:  9, lh: 13, before:  0, after:  2, chars:  96, indent: 14 },
+        ref:          { font: "F1", size:  9, lh: 13, before:  0, after:  4, chars:  92, indent: 22 },
+        callout:      { font: "F3", size:  8, lh: 12, before: 16, after:  0, chars:  96, indent:  0 },
+        small:        { font: "F3", size:  8, lh: 12, before:  6, after:  0, chars: 110, indent:  0 },
+        rule:         { font: "F1", size:  1, lh:  6, before:  4, after:  6, chars:   1, indent:  0 },
+        // --- new styles for the polished layout ---
+        // resultBig: prominent result SKU under the cover band (e.g. "Microsoft 365 E3").
+        resultBig:    { font: "F2", size: 19, lh: 24, before:  6, after:  2, chars:  46, indent:  0 },
+        // resultKicker: small label between resultBig and the badge.
+        resultKicker: { font: "F3", size: 10, lh: 14, before:  0, after:  0, chars:  82, indent:  0 },
+        // licenseBig: the recommended-license sentence rendered inside a coloured callout box.
+        licenseBig:   { font: "F2", size: 12, lh: 17, before:  0, after:  2, chars:  68, indent:  0 },
+        // microHeader: small uppercase tracking label inside callout boxes (e.g. "RECOMMENDED LICENSE").
+        microHeader:  { font: "F2", size:  8, lh: 12, before:  0, after:  4, chars: 110, indent:  0 },
+        // groupStart / groupEnd: zero-height markers that open/close a coloured
+        // background "card" around the blocks between them. See block loop.
+        groupStart:   { font: "F1", size:  1, lh:  0, before:  0, after:  0, chars:   1, indent:  0 },
+        groupEnd:     { font: "F1", size:  1, lh:  0, before:  0, after:  0, chars:   1, indent:  0 }
       };
 
       // Approximate Helvetica advance widths so right/center alignment and
@@ -4385,14 +4398,106 @@
       let y = PAGE_H - MARGIN_TOP;
       function ensureRoom(lh) { if (y - lh < MARGIN_BOT) { newPage(); pi++; y = PAGE_H - MARGIN_TOP; } }
 
+      // -------- Optional cover band on page 1 --------
+      // When meta.coverBand is supplied, paint a full-width coloured band at
+      // the top of page 1 with white title + subtitle text inside it. The
+      // starting y cursor is pushed down past the band so subsequent blocks
+      // sit below it. Setting meta.coverBand also implies skipHeaderFirstPage
+      // (the band replaces the per-page running header on page 1).
+      const coverBand = meta && meta.coverBand;
+      if (coverBand) {
+        const bandH        = coverBand.height || 96;
+        const bandY        = PAGE_H - bandH;
+        const bandRgb      = coverBand.bandRgb      || [0.000, 0.471, 0.831];
+        const highlightRgb = coverBand.highlightRgb || [0.000, 0.353, 0.620];
+        // Filled band
+        pages[0].ops.push({ kind: "fillrect", x: 0, y: bandY, w: PAGE_W, h: bandH, fillRgb: bandRgb });
+        // Thin highlight line at the bottom of the band
+        pages[0].ops.push({ kind: "line", x1: 0, x2: PAGE_W, y: bandY - 1.5, rgb: highlightRgb, width: 2 });
+        // Title (white bold)
+        if (coverBand.title) {
+          const tSize = coverBand.titleSize || 26;
+          const tW = approxWidth(coverBand.title, "F2", tSize);
+          pages[0].ops.push({ kind: "text", font: "F2", size: tSize, x: (PAGE_W - tW) / 2, y: PAGE_H - 42, text: coverBand.title, rgb: [1, 1, 1] });
+        }
+        // Subtitle (white italic)
+        if (coverBand.subtitle) {
+          const sSize = coverBand.subtitleSize || 11;
+          const sW = approxWidth(coverBand.subtitle, "F3", sSize);
+          pages[0].ops.push({ kind: "text", font: "F3", size: sSize, x: (PAGE_W - sW) / 2, y: PAGE_H - 65, text: coverBand.subtitle, rgb: [1, 1, 1] });
+        }
+        // Tagline (white, even smaller)
+        if (coverBand.tagline) {
+          const gSize = 9;
+          const gW = approxWidth(coverBand.tagline, "F3", gSize);
+          pages[0].ops.push({ kind: "text", font: "F3", size: gSize, x: (PAGE_W - gW) / 2, y: PAGE_H - 82, text: coverBand.tagline, rgb: [0.90, 0.95, 1.00] });
+        }
+        // Push the starting y down past the band
+        y = PAGE_H - bandH - 18;
+      }
+
+      // Group stack for groupStart / groupEnd markers. Each entry remembers
+      // where to splice the bg / border / bar ops once the closing marker is
+      // reached so they render BEHIND the text between them.
+      const groupStack = [];
+
       for (const block of blocks) {
         const style = STYLES[block.style] || STYLES.p;
-        y -= style.before;
+        y -= (block.beforeOverride != null ? block.beforeOverride : style.before);
+
+        // ---- groupStart: open a coloured-card scope ----
+        // Captures the current page index, op-insertion index, and the top y
+        // edge of the future card. The matching groupEnd splices the bg /
+        // border / bar ops at that index so they render UNDER the text that
+        // was emitted in between.
+        if (block.style === "groupStart") {
+          ensureRoom(6);
+          const padX = block.padX != null ? block.padX : 12;
+          const padY = block.padY != null ? block.padY : 10;
+          groupStack.push({
+            pi,
+            insertIndex: pages[pi].ops.length,
+            yTop: y,                   // top edge of the card sits at the current cursor
+            bg: block.bg || null,
+            border: block.border || null,
+            bar: block.bar || null,
+            padX, padY
+          });
+          y -= padY;
+          y -= (block.afterOverride != null ? block.afterOverride : style.after);
+          continue;
+        }
+
+        // ---- groupEnd: close the card, draw the bg + bar + border ----
+        if (block.style === "groupEnd") {
+          const g = groupStack.pop();
+          if (!g) { continue; }
+          // If the group crossed pages, skip the bg (would draw on the wrong
+          // page anyway). Future enhancement: split into per-page rects.
+          if (g.pi !== pi) {
+            y -= (block.afterOverride != null ? block.afterOverride : style.after);
+            continue;
+          }
+          y -= g.padY;
+          const boxX = MARGIN_X - g.padX;
+          const boxW = PAGE_W - 2 * MARGIN_X + 2 * g.padX;
+          const boxY = y;
+          const boxH = g.yTop - boxY;
+          const inserts = [];
+          if (g.bg)     inserts.push({ kind: "fillrect", x: boxX, y: boxY, w: boxW, h: boxH, fillRgb: g.bg });
+          if (g.border) inserts.push({ kind: "rect",     x: boxX, y: boxY, w: boxW, h: boxH, rgb: g.border, width: g.border.width || 0.5 });
+          if (g.bar)    inserts.push({ kind: "fillrect", x: boxX, y: boxY, w: g.bar.width || 3, h: boxH, fillRgb: g.bar.rgb });
+          if (inserts.length) pages[pi].ops.splice(g.insertIndex, 0, ...inserts);
+          y -= (block.afterOverride != null ? block.afterOverride : style.after);
+          continue;
+        }
 
         // Pure horizontal rule block — no text, just a hairline.
         if (block.style === "rule") {
           ensureRoom(style.lh);
-          pages[pi].ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: y - 2, rgb: ruleRgb, width: 0.5 });
+          const lineRgb = block.color || ruleRgb;
+          const lineWidth = block.lineWidth || 0.5;
+          pages[pi].ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: y - 2, rgb: lineRgb, width: lineWidth });
           y -= style.lh;
           y -= style.after;
           continue;
@@ -4401,9 +4506,10 @@
         const prefix = block.style === "bullet" ? "\u2022 " : "";
         const lines = pdfWrapText(prefix + (block.text || ""), style.chars);
 
-        // Callout block: draw a thin box around its wrapped text.
-        let boxStartY = null;
-        if (block.style === "callout") boxStartY = y + 4;
+        // Capture the start y + ops index for per-block bg/bar/box treatment.
+        const blockTopY = y + (block.padY || 4);
+        const blockInsertIndex = pages[pi].ops.length;
+        const hasBoxedBg = block.style === "callout" || block.bg || block.bar || block.border;
 
         for (let i = 0; i < lines.length; i++) {
           ensureRoom(style.lh);
@@ -4411,7 +4517,7 @@
           let x = MARGIN_X + (i > 0 && style.indent ? style.indent : 0);
           if (block.style === "callout") x = MARGIN_X + 10;
 
-          // Alignment for headline-class blocks only (title/subtitle/section).
+          // Alignment for headline-class blocks only (title/subtitle/section/resultBig).
           if (block.align === "center") {
             const w = approxWidth(lineText, style.font, style.size);
             x = (PAGE_W - w) / 2;
@@ -4421,7 +4527,9 @@
           }
 
           const lineY = y - style.size;
-          pages[pi].ops.push({ kind: "text", font: style.font, size: style.size, x, y: lineY, text: lineText });
+          const textOp = { kind: "text", font: style.font, size: style.size, x, y: lineY, text: lineText };
+          if (block.color) textOp.rgb = block.color;
+          pages[pi].ops.push(textOp);
 
           if (block.url) {
             const w = approxWidth(lineText, style.font, style.size);
@@ -4430,13 +4538,33 @@
           y -= style.lh;
         }
 
-        if (boxStartY !== null) {
-          // Draw the rect AROUND the wrapped callout text we just placed.
-          const boxX = MARGIN_X;
-          const boxW = PAGE_W - 2 * MARGIN_X;
-          const boxY = y - 2;
-          const boxH = boxStartY - boxY;
-          pages[pi].ops.push({ kind: "rect", x: boxX, y: boxY, w: boxW, h: boxH, rgb: ruleRgb, width: 0.5 });
+        // Per-block bg/bar/border: insert ops at the captured index so they
+        // render BEHIND the text we just emitted. Used by per-block callouts.
+        if (hasBoxedBg) {
+          const padX = block.padX != null ? block.padX : 10;
+          const padY = block.padY != null ? block.padY : 4;
+          const boxX = MARGIN_X - padX;
+          const boxW = PAGE_W - 2 * MARGIN_X + 2 * padX;
+          const boxY = y - padY;
+          const boxH = blockTopY - boxY;
+          const inserts = [];
+          if (block.bg)     inserts.push({ kind: "fillrect", x: boxX, y: boxY, w: boxW, h: boxH, fillRgb: block.bg });
+          if (block.border) inserts.push({ kind: "rect",     x: boxX, y: boxY, w: boxW, h: boxH, rgb: block.border, width: block.borderWidth || 0.5 });
+          if (block.bar)    inserts.push({ kind: "fillrect", x: boxX, y: boxY, w: block.bar.width || 3, h: boxH, fillRgb: block.bar.rgb });
+          // Legacy: if a bare `callout` block is used outside any active group
+          // and the caller didn't supply bg/bar/border, draw the original
+          // thin stroked rectangle so old call sites still look the same.
+          if (block.style === "callout" && inserts.length === 0 && groupStack.length === 0) {
+            inserts.push({ kind: "rect", x: MARGIN_X, y: boxY + padY, w: PAGE_W - 2 * MARGIN_X, h: boxH - padY, rgb: ruleRgb, width: 0.5 });
+          }
+          if (inserts.length) pages[pi].ops.splice(blockInsertIndex, 0, ...inserts);
+          y -= padY;
+        }
+
+        // Optional underline rule beneath a heading block (used for sections).
+        if (block.underline) {
+          ensureRoom(2);
+          pages[pi].ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: y + 2, rgb: block.underline, width: block.underlineWidth || 0.75 });
         }
 
         y -= style.after;
@@ -4522,13 +4650,22 @@
         const linkOps = [];
         for (const op of page.ops) {
           if (op.kind === "text") {
-            stream += `BT /${op.font} ${op.size} Tf ${op.x.toFixed(2)} ${op.y.toFixed(2)} Td (${pdfEscapeString(op.text)}) Tj ET\n`;
+            if (op.rgb) {
+              // Save graphics state, set non-stroke colour, draw text, restore.
+              stream += `q ${fmtRgb(op.rgb)} rg BT /${op.font} ${op.size} Tf ${op.x.toFixed(2)} ${op.y.toFixed(2)} Td (${pdfEscapeString(op.text)}) Tj ET Q\n`;
+            } else {
+              stream += `BT /${op.font} ${op.size} Tf ${op.x.toFixed(2)} ${op.y.toFixed(2)} Td (${pdfEscapeString(op.text)}) Tj ET\n`;
+            }
           } else if (op.kind === "line") {
             const w = (op.width || 0.5).toFixed(2);
             stream += `q ${w} w ${fmtRgb(op.rgb)} RG ${op.x1.toFixed(2)} ${op.y.toFixed(2)} m ${op.x2.toFixed(2)} ${op.y.toFixed(2)} l S Q\n`;
           } else if (op.kind === "rect") {
             const w = (op.width || 0.5).toFixed(2);
             stream += `q ${w} w ${fmtRgb(op.rgb)} RG ${op.x.toFixed(2)} ${op.y.toFixed(2)} ${op.w.toFixed(2)} ${op.h.toFixed(2)} re S Q\n`;
+          } else if (op.kind === "fillrect") {
+            // Filled rectangle, no border. Used for cover band, callout
+            // backgrounds, and left accent bars.
+            stream += `q ${fmtRgb(op.fillRgb)} rg ${op.x.toFixed(2)} ${op.y.toFixed(2)} ${op.w.toFixed(2)} ${op.h.toFixed(2)} re f Q\n`;
           } else if (op.kind === "link") {
             linkOps.push(op);
           }
@@ -4641,24 +4778,37 @@
         return "";
       }
 
+      // -------- Brand palette (matches the site's CSS custom properties) --------
+      // Kept inside this function so the PDF stays self-contained: anyone
+      // reading downloadPdf() can see exactly which colours land where in the
+      // generated document without spelunking elsewhere.
+      const BRAND        = [0.000, 0.471, 0.831]; // #0078d4 Microsoft blue
+      const BRAND_DARK   = [0.000, 0.353, 0.620]; // #005a9e
+      const BRAND_DEEP   = [0.000, 0.243, 0.447]; // #003e72
+      const NAVY         = [0.039, 0.086, 0.157]; // #0a1628
+      const BG_TINT      = [0.937, 0.965, 0.988]; // #eff6fc light-blue card bg
+      const BG_TINT_DEEP = [0.871, 0.925, 0.976]; // #deecf9
+      const BG_ALT       = [0.973, 0.976, 0.984]; // #f8f9fb cool neutral bg
+      const BORDER       = [0.882, 0.875, 0.867]; // #e1dfdd
+      const TEXT_MUTED   = [0.376, 0.369, 0.361]; // #605e5c
+      const WARNING      = [0.969, 0.388, 0.047]; // #f7630c
+      const WARNING_BG   = [1.000, 0.961, 0.929]; // warm peach tint
+
       const blocks = [];
 
-      // -------- Cover-style title block (page 1 only) --------
-      blocks.push({ style: "title",    text: "M365 Profiles", align: "center" });
-      blocks.push({ style: "subtitle", text: "Microsoft 365 Licensing Recommendation \u2014 Technical Report", align: "center" });
-      blocks.push({ style: "rule" });
-
-      // Promote the result title (e.g. "Microsoft 365 E5") so the reader sees
-      // the recommended SKU prominently on the cover — not buried in a kv row.
-      blocks.push({ style: "h1", text: node.title, align: "center" });
+      // -------- Result hero (under the cover band) --------
+      // Recommended SKU as a big centered headline; small italic kicker under it.
+      blocks.push({ style: "resultBig",    text: node.title, align: "center", color: NAVY });
       if (node.badge && node.badge !== node.title) {
-        blocks.push({ style: "subtitle", text: node.badge, align: "center" });
+        blocks.push({ style: "resultKicker", text: node.badge, align: "center", color: TEXT_MUTED });
       }
-      blocks.push({ style: "rule" });
+      blocks.push({ style: "rule", color: BORDER, lineWidth: 0.75 });
 
-      // Metadata table — labels + values separated by a thin middle dot. We
-      // skip rows that would be redundant with the cover (no Document title,
-      // no duplicate badge) so the table only carries new information.
+      // -------- Metadata card --------
+      // A light-blue tinted card with a brand-blue left accent bar, holding all
+      // the per-document metadata rows (profile, tenant, generated stamp, …).
+      blocks.push({ style: "groupStart", bg: BG_ALT, bar: { rgb: BRAND, width: 3 }, padX: 14, padY: 12 });
+      blocks.push({ style: "microHeader", text: "DOCUMENT METADATA", color: BRAND_DARK });
       if (profile && (!node.badge || node.badge !== profile)) {
         blocks.push({ style: "kv", text: `Profile selected   \u00B7  ${profile}` });
       }
@@ -4667,23 +4817,28 @@
       blocks.push({ style: "kv", text: `Document version   \u00B7  ${version}` });
       blocks.push({ style: "kv", text: `Generated          \u00B7  ${stamp}` });
       blocks.push({ style: "kv", text: `Result identifier  \u00B7  ${state.currentId}` });
-      blocks.push({ style: "rule" });
+      blocks.push({ style: "groupEnd" });
 
       // -------- Abstract --------
       if (node.sub) {
-        blocks.push({ style: "section", text: "Abstract" });
+        blocks.push({ style: "section", text: "Abstract", color: NAVY, underline: BRAND, underlineWidth: 0.75 });
         blocks.push({ style: "p", text: node.sub });
       }
 
-      // -------- §1 Recommended license --------
+      // -------- §1 Recommended license (highlight callout) --------
+      // The headline answer of the whole document: rendered inside a tinted
+      // box with a thick brand-blue left bar so the eye lands here first.
       if (node.license) {
-        blocks.push({ style: "section", text: `\u00A71  Recommended license${citeAll()}` });
-        blocks.push({ style: "p", text: node.license });
+        blocks.push({ style: "section", text: `\u00A71  Recommended license${citeAll()}`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
+        blocks.push({ style: "groupStart", bg: BG_TINT, bar: { rgb: BRAND, width: 4 }, padX: 14, padY: 12 });
+        blocks.push({ style: "microHeader", text: "RECOMMENDED LICENSE", color: BRAND_DARK });
+        blocks.push({ style: "licenseBig", text: node.license, color: NAVY });
+        blocks.push({ style: "groupEnd" });
       }
 
       // -------- §2 Rationale --------
       if (node.decisionBasis) {
-        blocks.push({ style: "section", text: `\u00A72  Rationale${citeAll()}` });
+        blocks.push({ style: "section", text: `\u00A72  Rationale${citeAll()}`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
         blocks.push({ style: "p", text: node.decisionBasis });
       }
 
@@ -4692,23 +4847,26 @@
       if (cloud && GOV_CLOUD_INFO[cloud]) {
         const info = GOV_CLOUD_INFO[cloud];
         const cite = citeOne(info.link[1]);
-        blocks.push({ style: "section", text: `\u00A7${nextSection}  Sovereign cloud caveat \u2014 ${govCloudLabel(cloud)}${cite}` });
-        blocks.push({ style: "p", text: info.title });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Sovereign cloud caveat \u2014 ${govCloudLabel(cloud)}${cite}`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
+        blocks.push({ style: "groupStart", bg: BG_TINT_DEEP, bar: { rgb: BRAND_DEEP, width: 3 }, padX: 14, padY: 10 });
+        blocks.push({ style: "microHeader", text: "GOVERNMENT CLOUD NOTICE", color: BRAND_DEEP });
+        blocks.push({ style: "p", text: info.title, color: NAVY });
         blocks.push({ style: "p", text: info.body });
+        blocks.push({ style: "groupEnd" });
         nextSection++;
       }
 
-      // -------- §N Recommendations --------
+      // -------- §N Recommended actions --------
       if (node.bullets && node.bullets.length) {
-        blocks.push({ style: "section", text: `\u00A7${nextSection}  Recommended actions${citeAll()}` });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Recommended actions${citeAll()}`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
         for (const b of node.bullets) blocks.push({ style: "bullet", text: b });
         nextSection++;
       }
 
       // -------- §N Decision path --------
       if (state.history.length) {
-        blocks.push({ style: "section", text: `\u00A7${nextSection}  Decision path` });
-        blocks.push({ style: "meta", text: "Step-by-step record of the answers that produced this recommendation. Each step is reproducible by re-running the decision tree with the same inputs." });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Decision path`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
+        blocks.push({ style: "meta", text: "Step-by-step record of the answers that produced this recommendation. Each step is reproducible by re-running the decision tree with the same inputs.", color: TEXT_MUTED });
         state.history.forEach((h, i) => {
           const n = i + 1;
           let line;
@@ -4722,18 +4880,21 @@
 
       // -------- §N References --------
       if (refs.length) {
-        blocks.push({ style: "section", text: `\u00A7${nextSection}  References` });
-        blocks.push({ style: "meta", text: "Source-of-truth Microsoft documentation cited by the sections above. URLs are live as of the generation timestamp; verify against the current Microsoft Product Terms before procurement." });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  References`, color: NAVY, underline: BRAND, underlineWidth: 0.75 });
+        blocks.push({ style: "meta", text: "Source-of-truth Microsoft documentation cited by the sections above. URLs are live as of the generation timestamp; verify against the current Microsoft Product Terms before procurement.", color: TEXT_MUTED });
         refs.forEach((r, i) => {
           blocks.push({ style: "ref", text: `[${i + 1}]  ${r.label}` });
-          blocks.push({ style: "ref", text: `      ${r.url}`, url: r.url });
+          blocks.push({ style: "ref", text: `      ${r.url}`, url: r.url, color: BRAND_DARK });
         });
         nextSection++;
       }
 
-      // -------- Disclaimer callout --------
-      blocks.push({ style: "callout", text: "DISCLAIMER \u2014 This is not official Microsoft advice. This recommendation is generated by an independent, open-source community decision tree maintained at https://github.com/billmcilhargey/m365-profiles. Microsoft Product Terms, the Microsoft Licensing Resources site, and your Microsoft account team or licensing partner are the authoritative sources for SKUs, entitlements, eligibility, and pricing. Verify every recommendation against those sources before procurement. The author and contributors accept no liability for licensing decisions made on the basis of this document." });
-      blocks.push({ style: "small", text: `Generated by m365-profiles ${version} \u00B7 https://billmcilhargey.github.io/m365-profiles/ \u00B7 ${isoStamp}` });
+      // -------- Disclaimer card (warm tint, orange accent bar) --------
+      blocks.push({ style: "groupStart", bg: WARNING_BG, bar: { rgb: WARNING, width: 4 }, padX: 14, padY: 12 });
+      blocks.push({ style: "microHeader", text: "IMPORTANT DISCLAIMER", color: WARNING });
+      blocks.push({ style: "meta", text: "This is not official Microsoft advice. This recommendation is generated by an independent, open-source community decision tree maintained at https://github.com/billmcilhargey/m365-profiles. Microsoft Product Terms, the Microsoft Licensing Resources site, and your Microsoft account team or licensing partner are the authoritative sources for SKUs, entitlements, eligibility, and pricing. Verify every recommendation against those sources before procurement. The author and contributors accept no liability for licensing decisions made on the basis of this document." });
+      blocks.push({ style: "groupEnd" });
+      blocks.push({ style: "small", text: `Generated by m365-profiles ${version} \u00B7 https://billmcilhargey.github.io/m365-profiles/ \u00B7 ${isoStamp}`, color: TEXT_MUTED });
 
       const headerRight = state.currentId;
       const bytes = generatePdf(blocks, {
@@ -4742,7 +4903,15 @@
         footerLeft:  `m365-profiles ${version}`,
         footerCenter: `Generated ${stamp}`,
         skipHeaderFirstPage: true,
-        accentRgb: [0.15, 0.27, 0.47]
+        accentRgb: BRAND,
+        coverBand: {
+          title:    "M365 Profiles",
+          subtitle: "Microsoft 365 Licensing Recommendation \u2014 Technical Report",
+          tagline:  `${version}  \u00B7  Generated ${stamp}`,
+          height:   96,
+          bandRgb:      BRAND,
+          highlightRgb: BRAND_DARK
+        }
       });
       const blob = new Blob([bytes], { type: "application/pdf" });
       const url  = URL.createObjectURL(blob);
