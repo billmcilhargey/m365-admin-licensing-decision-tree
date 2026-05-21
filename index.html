@@ -873,15 +873,32 @@
     .btn-no:hover  { background: var(--ms-blue-light); }
     .btn-secondary { background: white; color: var(--ms-text); border-color: var(--ms-border-strong); padding: 10px 14px; font-size: 14px; min-height: 40px; }
     .btn-secondary:hover { background: var(--ms-bg-tint); }
+    /* "← Back" button — rendered above the question on every step after the
+       first. Styled as a real, visible secondary button (not a faint text
+       link) so users can always see they have a way back. */
     .btn-back {
-      background: transparent;
-      color: var(--ms-text-muted);
-      border: none;
-      padding: 4px 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      color: var(--ms-text);
+      border: 1px solid var(--ms-border-strong);
+      padding: 8px 14px;
       font-size: 13px;
-      min-height: 0;
+      font-weight: 600;
+      min-height: 36px;
+      border-radius: 8px;
+      margin-bottom: 16px;
     }
-    .btn-back:hover { color: var(--ms-blue); }
+    .btn-back:hover {
+      background: var(--ms-bg-tint);
+      border-color: var(--ms-blue);
+      color: var(--ms-blue);
+    }
+    .btn-back:focus-visible {
+      outline: 2px solid var(--ms-blue);
+      outline-offset: 2px;
+    }
 
     .key-hint {
       display: block;
