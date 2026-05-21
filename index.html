@@ -4313,60 +4313,148 @@
       return out;
     }
 
-    // Lay out blocks → place lines on pages → emit a valid PDF byte array.
-    // Each block is { style, text, url? }. Style controls font, size,
-    // line-height, vertical spacing, indent, and wrap width.
+    // Lay out blocks → place text + graphics ops on pages → emit a valid PDF
+    // byte array. Each block is { style, text, url?, align? }. Style controls
+    // font, size, line-height, vertical spacing, indent, and wrap width. `meta`
+    // configures the running header and footer rendered on every page:
+    //   { headerLeft, headerRight, footerLeft, footerCenter, footerRight,
+    //     skipHeaderFirstPage, accentRgb: [r,g,b] }
     function generatePdf(blocks, meta) {
       const PAGE_W = 612, PAGE_H = 792;
-      const MARGIN_X = 54, MARGIN_TOP = 60, MARGIN_BOT = 60;
-      const FOOTER_RESERVE = 24;
+      const MARGIN_X = 54;
+      const HEADER_RESERVE = 40;
+      const FOOTER_RESERVE = 40;
+      const MARGIN_TOP = HEADER_RESERVE + 14;
+      const MARGIN_BOT = FOOTER_RESERVE + 10;
 
       const STYLES = {
-        h1:     { font: "F2", size: 18, lh: 24, before: 0,  after: 10, chars: 50, indent: 0  },
-        h2:     { font: "F2", size: 13, lh: 18, before: 14, after: 4,  chars: 68, indent: 0  },
-        meta:   { font: "F3", size:  9, lh: 13, before: 0,  after: 2,  chars: 98, indent: 0  },
-        p:      { font: "F1", size: 10, lh: 14, before: 2,  after: 4,  chars: 90, indent: 0  },
-        bullet: { font: "F1", size: 10, lh: 14, before: 0,  after: 2,  chars: 85, indent: 14 },
-        link:   { font: "F1", size:  9, lh: 13, before: 0,  after: 2,  chars: 98, indent: 14 },
-        small:  { font: "F3", size:  8, lh: 12, before: 10, after: 0,  chars: 110, indent: 0 }
+        title:    { font: "F2", size: 22, lh: 28, before:  0, after:  4, chars: 42, indent:  0 },
+        subtitle: { font: "F3", size: 13, lh: 18, before:  2, after: 14, chars: 70, indent:  0 },
+        h1:       { font: "F2", size: 16, lh: 22, before:  8, after:  6, chars: 56, indent:  0 },
+        h2:       { font: "F2", size: 12, lh: 16, before: 14, after:  4, chars: 72, indent:  0 },
+        section:  { font: "F2", size: 13, lh: 18, before: 18, after:  6, chars: 70, indent:  0 },
+        kv:       { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 92, indent:  0 },
+        meta:     { font: "F3", size:  9, lh: 13, before:  0, after:  2, chars: 98, indent:  0 },
+        p:        { font: "F1", size: 10, lh: 14, before:  2, after:  4, chars: 90, indent:  0 },
+        bullet:   { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 84, indent: 14 },
+        numbered: { font: "F1", size: 10, lh: 14, before:  0, after:  2, chars: 82, indent: 18 },
+        link:     { font: "F1", size:  9, lh: 13, before:  0, after:  2, chars: 96, indent: 14 },
+        ref:      { font: "F1", size:  9, lh: 13, before:  0, after:  4, chars: 92, indent: 22 },
+        callout:  { font: "F3", size:  8, lh: 12, before: 16, after:  0, chars: 96, indent:  0 },
+        small:    { font: "F3", size:  8, lh: 12, before:  6, after:  0, chars: 110, indent: 0 },
+        rule:     { font: "F1", size:  1, lh:  6, before:  4, after:  6, chars:  1, indent:  0 }
       };
 
-      const pages = [{ lines: [], links: [] }];
+      // Approximate Helvetica advance widths so right/center alignment and
+      // link-rect sizing aren't wildly off. Helvetica-Bold is a touch wider.
+      function approxWidth(text, font, size) {
+        const factor = (font === "F2") ? 0.56 : 0.50;
+        return text.length * size * factor;
+      }
+
+      const pages = [];
+      const accentRgb = (meta && meta.accentRgb) || [0.15, 0.27, 0.47]; // deep blue
+      const ruleRgb   = [0.70, 0.72, 0.75];
+
+      function newPage() {
+        pages.push({ ops: [] });
+        return pages.length - 1;
+      }
+      newPage();
       let pi = 0;
       let y = PAGE_H - MARGIN_TOP;
-
-      function newPage() { pages.push({ lines: [], links: [] }); pi++; y = PAGE_H - MARGIN_TOP; }
-      function ensureRoom(lh) { if (y - lh < MARGIN_BOT + FOOTER_RESERVE) newPage(); }
+      function ensureRoom(lh) { if (y - lh < MARGIN_BOT) { newPage(); pi++; y = PAGE_H - MARGIN_TOP; } }
 
       for (const block of blocks) {
         const style = STYLES[block.style] || STYLES.p;
         y -= style.before;
+
+        // Pure horizontal rule block — no text, just a hairline.
+        if (block.style === "rule") {
+          ensureRoom(style.lh);
+          pages[pi].ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: y - 2, rgb: ruleRgb, width: 0.5 });
+          y -= style.lh;
+          y -= style.after;
+          continue;
+        }
+
         const prefix = block.style === "bullet" ? "\u2022 " : "";
         const lines = pdfWrapText(prefix + (block.text || ""), style.chars);
+
+        // Callout block: draw a thin box around its wrapped text.
+        let boxStartY = null;
+        if (block.style === "callout") boxStartY = y + 4;
+
         for (let i = 0; i < lines.length; i++) {
           ensureRoom(style.lh);
           const lineText = lines[i];
-          const x = MARGIN_X + (i > 0 && style.indent ? style.indent : 0);
+          let x = MARGIN_X + (i > 0 && style.indent ? style.indent : 0);
+          if (block.style === "callout") x = MARGIN_X + 10;
+
+          // Alignment for headline-class blocks only (title/subtitle/section).
+          if (block.align === "center") {
+            const w = approxWidth(lineText, style.font, style.size);
+            x = (PAGE_W - w) / 2;
+          } else if (block.align === "right") {
+            const w = approxWidth(lineText, style.font, style.size);
+            x = PAGE_W - MARGIN_X - w;
+          }
+
           const lineY = y - style.size;
-          pages[pi].lines.push({ font: style.font, size: style.size, x, y: lineY, text: lineText });
+          pages[pi].ops.push({ kind: "text", font: style.font, size: style.size, x, y: lineY, text: lineText });
+
           if (block.url) {
-            // Approximate Helvetica glyph width ≈ 0.55 × point size.
-            const w = lineText.length * style.size * 0.55;
-            const h = style.size + 2;
-            pages[pi].links.push({ x, y: lineY - 2, w, h, url: block.url });
+            const w = approxWidth(lineText, style.font, style.size);
+            pages[pi].ops.push({ kind: "link", x, y: lineY - 2, w, h: style.size + 2, url: block.url });
           }
           y -= style.lh;
         }
+
+        if (boxStartY !== null) {
+          // Draw the rect AROUND the wrapped callout text we just placed.
+          const boxX = MARGIN_X;
+          const boxW = PAGE_W - 2 * MARGIN_X;
+          const boxY = y - 2;
+          const boxH = boxStartY - boxY;
+          pages[pi].ops.push({ kind: "rect", x: boxX, y: boxY, w: boxW, h: boxH, rgb: ruleRgb, width: 0.5 });
+        }
+
         y -= style.after;
       }
 
-      // Footer on every page (generation stamp + page n of N).
+      // -------- Running header + footer on every page --------
+      const skipHeaderFirstPage = !!(meta && meta.skipHeaderFirstPage);
       for (let p = 0; p < pages.length; p++) {
+        const page = pages[p];
+
+        // Footer rule
+        const footerRuleY = MARGIN_BOT - 4;
+        page.ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: footerRuleY, rgb: ruleRgb, width: 0.5 });
+
         const footerY = MARGIN_BOT - 16;
-        pages[p].lines.push({ font: "F3", size: 8, x: MARGIN_X, y: footerY, text: meta.footerLeft });
+        if (meta && meta.footerLeft) {
+          page.ops.push({ kind: "text", font: "F3", size: 8, x: MARGIN_X, y: footerY, text: meta.footerLeft });
+        }
+        if (meta && meta.footerCenter) {
+          const w = approxWidth(meta.footerCenter, "F3", 8);
+          page.ops.push({ kind: "text", font: "F3", size: 8, x: (PAGE_W - w) / 2, y: footerY, text: meta.footerCenter });
+        }
         const pageNum = `Page ${p + 1} of ${pages.length}`;
-        const approxW = pageNum.length * 8 * 0.55;
-        pages[p].lines.push({ font: "F3", size: 8, x: PAGE_W - MARGIN_X - approxW, y: footerY, text: pageNum });
+        const numW = approxWidth(pageNum, "F3", 8);
+        page.ops.push({ kind: "text", font: "F3", size: 8, x: PAGE_W - MARGIN_X - numW, y: footerY, text: pageNum });
+
+        // Header (skip on page 1 when caller wants the cover treatment).
+        if (skipHeaderFirstPage && p === 0) continue;
+        const headerTextY = PAGE_H - HEADER_RESERVE + 8;
+        const headerRuleY = PAGE_H - HEADER_RESERVE - 2;
+        if (meta && meta.headerLeft) {
+          page.ops.push({ kind: "text", font: "F2", size: 9, x: MARGIN_X, y: headerTextY, text: meta.headerLeft });
+        }
+        if (meta && meta.headerRight) {
+          const w = approxWidth(meta.headerRight, "F3", 9);
+          page.ops.push({ kind: "text", font: "F3", size: 9, x: PAGE_W - MARGIN_X - w, y: headerTextY, text: meta.headerRight });
+        }
+        page.ops.push({ kind: "line", x1: MARGIN_X, x2: PAGE_W - MARGIN_X, y: headerRuleY, rgb: accentRgb, width: 0.75 });
       }
 
       // -- Assemble PDF objects -----------------------------------------
@@ -4388,6 +4476,8 @@
       set(fontBold, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`);
       set(fontItal, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>`);
 
+      function fmtRgb(rgb) { return `${rgb[0].toFixed(3)} ${rgb[1].toFixed(3)} ${rgb[2].toFixed(3)}`; }
+
       const pageIds = [];
       for (const page of pages) {
         const pageId = reserve();
@@ -4395,12 +4485,23 @@
         pageIds.push(pageId);
 
         let stream = "";
-        for (const line of page.lines) {
-          stream += `BT /${line.font} ${line.size} Tf ${line.x.toFixed(2)} ${line.y.toFixed(2)} Td (${pdfEscapeString(line.text)}) Tj ET\n`;
+        const linkOps = [];
+        for (const op of page.ops) {
+          if (op.kind === "text") {
+            stream += `BT /${op.font} ${op.size} Tf ${op.x.toFixed(2)} ${op.y.toFixed(2)} Td (${pdfEscapeString(op.text)}) Tj ET\n`;
+          } else if (op.kind === "line") {
+            const w = (op.width || 0.5).toFixed(2);
+            stream += `q ${w} w ${fmtRgb(op.rgb)} RG ${op.x1.toFixed(2)} ${op.y.toFixed(2)} m ${op.x2.toFixed(2)} ${op.y.toFixed(2)} l S Q\n`;
+          } else if (op.kind === "rect") {
+            const w = (op.width || 0.5).toFixed(2);
+            stream += `q ${w} w ${fmtRgb(op.rgb)} RG ${op.x.toFixed(2)} ${op.y.toFixed(2)} ${op.w.toFixed(2)} ${op.h.toFixed(2)} re S Q\n`;
+          } else if (op.kind === "link") {
+            linkOps.push(op);
+          }
         }
         set(contentsId, `<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
 
-        const annotIds = page.links.map(link => {
+        const annotIds = linkOps.map(link => {
           const aId = reserve();
           const rect = `${link.x.toFixed(2)} ${link.y.toFixed(2)} ${(link.x + link.w).toFixed(2)} ${(link.y + link.h).toFixed(2)}`;
           set(aId, `<< /Type /Annot /Subtype /Link /Rect [${rect}] /Border [0 0 0] /A << /Type /Action /S /URI /URI (${pdfEscapeString(link.url)}) >> >>`);
@@ -4441,80 +4542,180 @@
       return bytes;
     }
 
+    // Read the deployed release version from the footer (sed-substituted at
+    // build time). Returns "dev" when the placeholder is still present
+    // (running the site straight out of git without a build).
+    function releaseVersion() {
+      const el = document.getElementById("release-version");
+      const raw = (el && el.textContent || "").trim();
+      if (!raw || raw === "__RELEASE_VERSION__") return "dev";
+      return raw;
+    }
+
+    // Friendly label for the M365 profile the user selected at start_choice.
+    // Used by the PDF report's metadata table. Returns null when the user
+    // hasn't picked a profile yet (defensive — downloadPdf only fires from
+    // result screens, which implies a profile was chosen).
+    function selectedProfileLabel() {
+      const entry = state.history.find(h => h.id === "start_choice");
+      return entry ? entry.answer : null;
+    }
+
     // Build the report content blocks for the current result and trigger
-    // a browser download of the generated PDF.
+    // a browser download of the generated PDF. The layout follows a
+    // technical-paper convention: cover-style title block, metadata table,
+    // numbered sections (§1 Recommended license, §2 Rationale, …), and a
+    // numbered References section with [n] citations from the body sections
+    // that they ground.
     function downloadPdf() {
       const node = TREE[state.currentId];
       if (!node || !node.result) { flash("Download PDF is only available on a result screen"); return; }
 
-      const tenant = selectedTenantLabel();
-      const cloud  = govCloudFromHistory();
-      const stamp  = new Date().toLocaleString();
+      const tenant   = selectedTenantLabel();
+      const profile  = selectedProfileLabel();
+      const cloud    = govCloudFromHistory();
+      const now      = new Date();
+      const stamp    = now.toLocaleString();
+      const isoStamp = now.toISOString();
+      const version  = releaseVersion();
+
+      // Build the references list first so the body sections can cite by index.
+      const refs = [];
+      const seen = new Set();
+      const pushRef = (label, url) => {
+        const key = url || label;
+        if (seen.has(key)) return;
+        seen.add(key);
+        refs.push({ label, url });
+      };
+      if (node.docs && node.docs.length) {
+        for (const [label, url] of node.docs) pushRef(label, url);
+      }
+      if (cloud && GOV_CLOUD_INFO[cloud] && GOV_CLOUD_INFO[cloud].link) {
+        pushRef(GOV_CLOUD_INFO[cloud].link[0], GOV_CLOUD_INFO[cloud].link[1]);
+      }
+      // Format a citation cluster like " [1, 2]" for ≤ 2 refs or " [1–N]" for ranges of 3+.
+      function citeAll() {
+        if (!refs.length) return "";
+        if (refs.length <= 2) return ` [${refs.map((_, i) => i + 1).join(", ")}]`;
+        return ` [1\u2013${refs.length}]`;
+      }
+      function citeOne(url) {
+        for (let i = 0; i < refs.length; i++) {
+          if (refs[i].url === url) return ` [${i + 1}]`;
+        }
+        return "";
+      }
 
       const blocks = [];
-      blocks.push({ style: "h1", text: "M365 Profiles — Licensing Recommendation" });
-      blocks.push({ style: "meta", text: `Generated ${stamp}` });
-      blocks.push({ style: "meta", text: `Tenant baseline: ${tenant}` });
-      if (cloud) blocks.push({ style: "meta", text: `Sovereign cloud: ${govCloudLabel(cloud)}` });
 
-      if (node.badge) blocks.push({ style: "h2", text: node.badge });
-      blocks.push({ style: "h1", text: node.title });
-      if (node.sub) blocks.push({ style: "p", text: node.sub });
+      // -------- Cover-style title block (page 1 only) --------
+      blocks.push({ style: "title",    text: "M365 Profiles", align: "center" });
+      blocks.push({ style: "subtitle", text: "Microsoft 365 Licensing Recommendation \u2014 Technical Report", align: "center" });
+      blocks.push({ style: "rule" });
 
+      // Promote the result title (e.g. "Microsoft 365 E5") so the reader sees
+      // the recommended SKU prominently on the cover — not buried in a kv row.
+      blocks.push({ style: "h1", text: node.title, align: "center" });
+      if (node.badge && node.badge !== node.title) {
+        blocks.push({ style: "subtitle", text: node.badge, align: "center" });
+      }
+      blocks.push({ style: "rule" });
+
+      // Metadata table — labels + values separated by a thin middle dot. We
+      // skip rows that would be redundant with the cover (no Document title,
+      // no duplicate badge) so the table only carries new information.
+      if (profile && (!node.badge || node.badge !== profile)) {
+        blocks.push({ style: "kv", text: `Profile selected   \u00B7  ${profile}` });
+      }
+      blocks.push({ style: "kv", text: `Tenant baseline    \u00B7  ${tenant}` });
+      if (cloud)   blocks.push({ style: "kv", text: `Sovereign cloud    \u00B7  ${govCloudLabel(cloud)}` });
+      blocks.push({ style: "kv", text: `Document version   \u00B7  ${version}` });
+      blocks.push({ style: "kv", text: `Generated          \u00B7  ${stamp}` });
+      blocks.push({ style: "kv", text: `Result identifier  \u00B7  ${state.currentId}` });
+      blocks.push({ style: "rule" });
+
+      // -------- Abstract --------
+      if (node.sub) {
+        blocks.push({ style: "section", text: "Abstract" });
+        blocks.push({ style: "p", text: node.sub });
+      }
+
+      // -------- §1 Recommended license --------
       if (node.license) {
-        blocks.push({ style: "h2", text: "Required license" });
+        blocks.push({ style: "section", text: `\u00A71  Recommended license${citeAll()}` });
         blocks.push({ style: "p", text: node.license });
       }
 
+      // -------- §2 Rationale --------
       if (node.decisionBasis) {
-        blocks.push({ style: "h2", text: "Why this is the recommendation" });
+        blocks.push({ style: "section", text: `\u00A72  Rationale${citeAll()}` });
         blocks.push({ style: "p", text: node.decisionBasis });
       }
 
+      // -------- §3 Sovereign cloud caveat (conditional) --------
+      let nextSection = 3;
       if (cloud && GOV_CLOUD_INFO[cloud]) {
         const info = GOV_CLOUD_INFO[cloud];
-        blocks.push({ style: "h2", text: `Sovereign cloud caveat — ${govCloudLabel(cloud)}` });
+        const cite = citeOne(info.link[1]);
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Sovereign cloud caveat \u2014 ${govCloudLabel(cloud)}${cite}` });
         blocks.push({ style: "p", text: info.title });
         blocks.push({ style: "p", text: info.body });
-        blocks.push({ style: "link", text: `${info.link[0]} — ${info.link[1]}`, url: info.link[1] });
+        nextSection++;
       }
 
+      // -------- §N Recommendations --------
       if (node.bullets && node.bullets.length) {
-        blocks.push({ style: "h2", text: "What to do" });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Recommended actions${citeAll()}` });
         for (const b of node.bullets) blocks.push({ style: "bullet", text: b });
+        nextSection++;
       }
 
+      // -------- §N Decision path --------
       if (state.history.length) {
-        blocks.push({ style: "h2", text: "Decision path" });
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  Decision path` });
+        blocks.push({ style: "meta", text: "Step-by-step record of the answers that produced this recommendation. Each step is reproducible by re-running the decision tree with the same inputs." });
         state.history.forEach((h, i) => {
           const n = i + 1;
           let line;
-          if (h.kind === "choice") line = `${n}. ${h.questionText} — ${h.answer}`;
+          if (h.kind === "choice") line = `${n}. ${h.questionText} \u2014 ${h.answer}`;
           else if (h.kind === "info" || h.kind === "nav" || h.kind === "result-jump") line = `${n}. ${h.questionText} (continue)`;
-          else line = `${n}. ${h.questionText} — ${String(h.answer).toUpperCase()}`;
-          blocks.push({ style: "bullet", text: line });
+          else line = `${n}. ${h.questionText} \u2014 ${String(h.answer).toUpperCase()}`;
+          blocks.push({ style: "numbered", text: line });
         });
+        nextSection++;
       }
 
-      if (node.docs && node.docs.length) {
-        blocks.push({ style: "h2", text: "Microsoft documentation" });
-        for (const [label, url] of node.docs) {
-          blocks.push({ style: "link", text: `${label} — ${url}`, url });
-        }
+      // -------- §N References --------
+      if (refs.length) {
+        blocks.push({ style: "section", text: `\u00A7${nextSection}  References` });
+        blocks.push({ style: "meta", text: "Source-of-truth Microsoft documentation cited by the sections above. URLs are live as of the generation timestamp; verify against the current Microsoft Product Terms before procurement." });
+        refs.forEach((r, i) => {
+          blocks.push({ style: "ref", text: `[${i + 1}]  ${r.label}` });
+          blocks.push({ style: "ref", text: `      ${r.url}`, url: r.url });
+        });
+        nextSection++;
       }
 
-      blocks.push({
-        style: "small",
-        text: "Disclaimer: Not official Microsoft advice. This recommendation is generated by an independent community decision tree at https://billmcilhargey.github.io/m365-profiles/. Verify SKUs, entitlements, and pricing with your Microsoft account team or licensing partner. Microsoft Product Terms are the source of truth."
+      // -------- Disclaimer callout --------
+      blocks.push({ style: "callout", text: "DISCLAIMER \u2014 This is not official Microsoft advice. This recommendation is generated by an independent, open-source community decision tree maintained at https://github.com/billmcilhargey/m365-profiles. Microsoft Product Terms, the Microsoft Licensing Resources site, and your Microsoft account team or licensing partner are the authoritative sources for SKUs, entitlements, eligibility, and pricing. Verify every recommendation against those sources before procurement. The author and contributors accept no liability for licensing decisions made on the basis of this document." });
+      blocks.push({ style: "small", text: `Generated by m365-profiles ${version} \u00B7 https://billmcilhargey.github.io/m365-profiles/ \u00B7 ${isoStamp}` });
+
+      const headerRight = state.currentId;
+      const bytes = generatePdf(blocks, {
+        headerLeft:  "M365 Profiles \u00B7 Licensing Recommendation",
+        headerRight: headerRight,
+        footerLeft:  `m365-profiles ${version}`,
+        footerCenter: `Generated ${stamp}`,
+        skipHeaderFirstPage: true,
+        accentRgb: [0.15, 0.27, 0.47]
       });
-
-      const bytes = generatePdf(blocks, { footerLeft: `m365-profiles · ${stamp}` });
       const blob = new Blob([bytes], { type: "application/pdf" });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       const today = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `m365-profiles-report-${today}.pdf`;
+      a.download = `m365-profiles-${state.currentId}-${today}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
