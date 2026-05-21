@@ -971,6 +971,36 @@
     }
     [data-theme="dark"] .result-basis h3 { color: #8ec5ff; }
 
+    /* "Required license" headline block, rendered right under the result hero.
+       Names the SKU(s) to buy in one line so it can't be missed. */
+    .result-license {
+      background: #f4ecfb;
+      border-left: 4px solid var(--ms-purple);
+      padding: 14px 18px;
+      border-radius: 4px;
+      margin-top: 14px;
+    }
+    .result-license__label {
+      margin: 0 0 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5a318f;
+    }
+    .result-license__sku {
+      margin: 0;
+      color: var(--ms-text);
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    [data-theme="dark"] .result-license {
+      background: #2a1f3a;
+      border-left-color: #c79bff;
+    }
+    [data-theme="dark"] .result-license__label { color: #c79bff; }
+
     /* Caption row under a Q→A in the "Why you got this result" list that
        explains the licensing rule the answer triggered. */
     .why-explain {
@@ -1061,6 +1091,13 @@
         color: #333 !important;
         border: 1px solid #999 !important;
       }
+      .result-license {
+        background: #f5f5f5 !important;
+        border-left: 4px solid #555 !important;
+        color: black !important;
+      }
+      .result-license__label,
+      .result-license__sku { color: black !important; }
       .result-section { break-inside: avoid; page-break-inside: avoid; }
       .result-why__list li { break-inside: avoid; page-break-inside: avoid; }
       .why-a { background: #eee !important; color: #333 !important; border: 1px solid #bbb !important; }
@@ -2067,6 +2104,7 @@
         badgeClass: "badge-warning",
         title: "Primary daily-use account — licensing rules differ",
         sub: "Microsoft recommends not mixing privileged work with a daily-use account. If you can, create a separate privileged admin account and restart this assessment.",
+        license: "Base service license (M365 E3 / Business Premium / F3) + the premium tier from re-running this tree on a dedicated admin account",
         decisionBasis: "You picked an account that does both daily Microsoft 365 work AND privileged admin work. Microsoft's privileged-access guidance recommends separating these roles. Because the account consumes mail / Teams / Office, a base service license is always required — on top of which any premium-tier feature it uses adds the same per-user requirements the admin tree evaluates.",
         bullets: [
           "Because this account consumes mail / Teams / Office, it always needs at least a base Microsoft 365 service license (E3, Business Premium, or F3 minimum).",
@@ -2343,6 +2381,7 @@
         badgeClass: "badge-warning",
         title: "Service license required",
         sub: "This account is a service-consuming user, not just an admin.",
+        license: "Microsoft 365 E3 at minimum (or Business Premium for ≤ 300 seats, or F1/F3 for frontline) — upgrade to E5/E7 if the account also performs privileged admin work or uses Copilot",
         decisionBasis: "You answered Yes to consuming a Microsoft 365 user-facing service (Exchange / Teams / SharePoint / OneDrive / Office). Those services are per-user licensed — the account needs a base plan that includes the workloads it touches, regardless of any admin role it also holds.",
         bullets: [
           "Assign at minimum a base Microsoft 365 plan that covers the services used (e.g. Microsoft 365 E3 or Business Premium; F1/F3 if frontline only).",
@@ -2361,6 +2400,7 @@
         badgeClass: "badge-success",
         title: "No user license required",
         sub: "Use a managed identity or service principal — they don't consume Microsoft 365 user licenses.",
+        license: "None per-user. Optional: Workload Identities Premium (per workload identity) for risk detection and Conditional Access on service principals",
         decisionBasis: "You answered Yes to this being a non-interactive identity (service principal / managed identity / workload identity). Per Microsoft's workload identities documentation, these are billed differently from human users — no per-user Microsoft 365 license is required. Optional Workload Identities Premium adds risk detection and CA for workload identities.",
         bullets: [
           "Prefer managed identities for Azure workloads and replace service-account passwords where possible.",
@@ -2379,6 +2419,7 @@
         badgeClass: "badge-info",
         title: "Microsoft 365 Copilot add-on, or Microsoft 365 E7 (Frontier Suite)",
         sub: "Required for Copilot, Copilot Studio agents grounded in tenant data, and Agent 365 governance.",
+        license: "Microsoft 365 Copilot add-on (per user, on top of an eligible base plan) — or Microsoft 365 E7, which bundles E5 + Copilot + Entra Suite + Agent 365 in one SKU",
         decisionBasis: "You answered Yes to using Copilot, Copilot Studio grounded in tenant data, or governing AI agents. Microsoft 365 Copilot is a per-user add-on (not bundled with any base plan below E7) per the Microsoft Copilot licensing page. E7 bundles E5 + Copilot + Entra Suite + Agent 365 — a single SKU is often cheaper than stacking the add-ons.",
         bullets: [
           "Microsoft 365 Copilot is an add-on to an eligible base plan (E3, E5, Business Standard, Business Premium, etc.).",
@@ -2399,6 +2440,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft 365 E5 (or E5 Compliance / Purview Suite) required",
         sub: "Per-user license for everyone in scope of the Purview policy — including admins added as test users.",
+        license: "Microsoft 365 E5, M365 E5 Compliance, or the Microsoft Purview Suite — per user in scope of the policy (also satisfied by M365 E7)",
         decisionBasis: "You answered Yes to being in-scope of an E5-tier Purview policy (Insider Risk, Communication Compliance, premium eDiscovery, endpoint DLP, etc.). Microsoft's Purview subscription pages require every in-scope user to be licensed at M365 E5, E5 Compliance, or Purview Suite — not just the policy author. Being a test user is a licensing trigger.",
         bullets: [
           "Insider Risk Management, Communication Compliance, Adaptive Protection, endpoint DLP, premium eDiscovery, auto-labeling, Records Management, Customer Lockbox / Customer Key, Information Barriers, Privileged Access Management for Office, and Audit (Premium) all sit in the E5 / Purview Suite tier.",
@@ -2422,6 +2464,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft 365 E5 or Microsoft Defender Suite required",
         sub: "Defender XDR experiences, Defender for Endpoint P2, and Defender for Office 365 P2 sit in the E5 Security / Defender Suite tier.",
+        license: "Microsoft 365 E5 or the Microsoft Defender Suite add-on, per user (also satisfied by M365 E7). The Defender Suite includes Entra ID P2.",
         decisionBasis: "You answered Yes to operating Defender XDR, Defender for Endpoint P2, Defender for Identity, Defender for Cloud Apps, or Defender for Office 365 P2. The Microsoft Entra licensing page bundles these into the Defender Suite (formerly E5 Security), included in M365 E5 / E7 or sold as a per-user add-on. Base E3 / Business Premium do not include them.",
         bullets: [
           "Defender for Endpoint Plan 2, Defender for Identity, Defender for Cloud Apps, Defender for Office 365 Plan 2, and the Defender XDR portal are part of the Microsoft Defender Suite.",
@@ -2444,6 +2487,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft Intune Suite (or standalone Intune add-on)",
         sub: "Premium endpoint management features are not in base Intune.",
+        license: "Microsoft Intune Suite add-on per user — or the matching standalone add-on (EPM, Remote Help, Cloud PKI, Microsoft Tunnel for MAM, Enterprise App Management, Advanced Endpoint Analytics) for users who only need one feature",
         decisionBasis: "You answered Yes to using EPM, Remote Help, Microsoft Tunnel for MAM, Cloud PKI, Enterprise App Management, or Advanced Endpoint Analytics. Microsoft's Intune add-ons documentation lists each of these as a per-user add-on outside base Intune. Buy the Intune Suite (or the matching standalone add-on) only for users who actually use the feature.",
         bullets: [
           "Endpoint Privilege Management (EPM), Remote Help, Microsoft Tunnel for MAM, Cloud PKI, Enterprise App Management, and Advanced Endpoint Analytics require the Microsoft Intune Suite add-on or individual standalone add-ons.",
@@ -2465,6 +2509,7 @@
         badgeClass: "badge-info",
         title: "Microsoft Teams Premium required",
         sub: "Per-user add-on on top of any plan that already includes Teams.",
+        license: "Microsoft Teams Premium add-on, per user that organizes or attends premium meetings (not bundled with E3, E5, or E7)",
         decisionBasis: "You answered Yes to using Teams Premium features (advanced webinars, town halls premium, intelligent recap, branded meetings, premium virtual appointments, etc.). The Microsoft Teams add-on licensing page lists Teams Premium as a separate per-user SKU — it is not bundled with E3, E5, or E7. Only license users who actually host / attend these meetings.",
         bullets: [
           "Teams Premium covers advanced webinars, town halls premium, intelligent meeting recap, real-time translation, branded meetings, sensitivity-labeled meetings, and premium virtual appointments.",
@@ -2484,6 +2529,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft Entra ID P2 required",
         sub: "PIM eligible / time-bound / approver / reviewer roles all require P2 per user.",
+        license: "Microsoft Entra ID P2 per user (admins, approvers, and reviewers) — included in M365 E5, M365 E7, EMS E5, Defender Suite, Entra Suite, and Entra ID Governance",
         decisionBasis: "You answered Yes to being PIM-eligible / time-bound or being a PIM approver/reviewer. The Entra ID Governance licensing fundamentals page is explicit: every user in any of those positions requires Entra ID P2 (or Entra ID Governance). M365 E5 and E7 include P2; otherwise buy it as a per-user add-on.",
         bullets: [
           "Each admin who is PIM-eligible needs an Entra ID P2 (or Entra ID Governance) license.",
@@ -2505,6 +2551,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft Entra ID P2 required",
         sub: "Identity Protection premium detections and risk-based Conditional Access need P2 per user in scope.",
+        license: "Microsoft Entra ID P2 per user in scope of risk policies — included in M365 E5, M365 E7, EMS E5, Defender Suite, and Entra Suite",
         decisionBasis: "You answered Yes to being in scope of Entra ID Protection (risk-based CA, premium risk detections, or user/sign-in risk policies). The Identity Protection documentation requires Entra ID P2 for every user the policy evaluates — not just the policy author. Bundled in M365 E5 / E7 or sold standalone.",
         bullets: [
           "Premium detections (atypical / impossible travel, password spray, malicious IP, verified threat actor IP, suspicious MFA approval, anomalous token, etc.) only appear with P2.",
@@ -2525,6 +2572,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft Entra ID Governance license required",
         sub: "Lifecycle Workflows and Entitlement Management access packages sit above P2.",
+        license: "Microsoft Entra ID Governance per user (target, approver, or reviewer in a governance flow) — also included in the Microsoft Entra Suite and M365 E7",
         decisionBasis: "You answered Yes to using advanced governance features (Entitlement Management access packages, Lifecycle Workflows, ML access-review recommendations, or Privileged Access Group governance). The Entra ID Governance licensing fundamentals page lists these as exclusive to Entra ID Governance (or the Entra Suite, which bundles Governance with Internet/Private Access and Verified ID).",
         bullets: [
           "Entitlement Management (access packages with multi-stage approvals), Lifecycle Workflows, machine-learning recommendations on access reviews, and Privileged Access Groups governance require the Entra ID Governance SKU.",
@@ -2547,6 +2595,7 @@
         badgeClass: "badge-premium",
         title: "Microsoft Entra Suite required",
         sub: "Bundles P2 + ID Governance + Internet Access + Private Access + Verified ID.",
+        license: "Microsoft Entra Suite per user in scope (bundles P2 + Governance + Internet Access + Private Access + Verified ID) — also included in M365 E7",
         decisionBasis: "You answered Yes to operating Entra Suite features (Global Secure Access — Internet Access / Private Access — Verified ID issuance, or unified network-identity CA). The Microsoft Entra Suite documentation packages these into a single per-user SKU that also includes P2 and Governance. M365 E7 includes the Entra Suite outright.",
         bullets: [
           "The Microsoft Entra Suite is required for Global Secure Access (Internet Access + Private Access), Verified ID issuance, and unified network + identity Conditional Access.",
@@ -2569,6 +2618,7 @@
         badgeClass: "badge-success",
         title: "No license required — break-glass account",
         sub: "Microsoft recommends excluding emergency-access accounts from Conditional Access, PIM, and risk policies.",
+        license: "None. Microsoft Entra ID Free (included with the tenant) is sufficient as long as the account stays excluded from CA, PIM, and Identity Protection",
         decisionBasis: "You confirmed this is a break-glass account explicitly excluded from Conditional Access, PIM, and Identity Protection. Microsoft's emergency-access guidance recommends that exclusion to avoid lockout; because the account is not in scope of those policies, it does not trigger the per-user premium-tier licensing requirement those policies normally create.",
         bullets: [
           "Keep the account excluded from CA, PIM, and Identity Protection to keep it license-free.",
@@ -2588,6 +2638,7 @@
         badgeClass: "badge-success",
         title: "No license required — admin-only account",
         sub: "Global Administrators and Power Platform Administrators can administer without a license assigned.",
+        license: "None. Microsoft Entra ID Free (included with the tenant) covers baseline directory / role work for an admin-only account",
         decisionBasis: "You answered No to every premium-tier trigger — no Copilot, no Purview E5, no Defender XDR, no Intune Suite, no Teams Premium, no PIM, no Identity Protection, no Governance, and no Entra Suite. Microsoft's Entra licensing page confirms that a privileged admin who is only doing baseline directory / role work can run on Entra ID Free, which is included with the tenant.",
         bullets: [
           "Microsoft Entra ID Free already covers user/group management, basic reports, and SSO — no purchase needed.",
@@ -2607,6 +2658,7 @@
         badgeClass: "badge-premium",
         title: "Information / knowledge worker — M365 E3 / E5 (or Business Premium ≤ 300 seats)",
         sub: "Standard desktop / laptop end user who consumes Exchange, Teams, SharePoint, OneDrive, and Office apps. Choose the tier by the security and compliance posture you actually deploy.",
+        license: "Microsoft 365 E3 (baseline) or E5 (security + compliance) per user — or Business Premium for tenants ≤ 300 seats. Add Microsoft 365 Copilot per user as needed (or move to M365 E7).",
         decisionBasis: "You picked Information / knowledge worker. Microsoft's commercial plan comparisons treat this persona as the baseline for the E and Business families. The recommended tier depends on the security / compliance posture you operate — the linked Microsoft 365 service descriptions and product terms enumerate what each SKU includes so you can map deployed features back to the cheapest SKU that covers them.",
         bullets: [
           "Baseline: Microsoft 365 E3 — Office apps, Exchange Online (P2), Teams, SharePoint, OneDrive, Intune, Entra ID P1, Defender for Office 365 P1, AIP P1.",
@@ -2635,6 +2687,7 @@
         badgeClass: "badge-premium",
         title: "Frontline worker — Microsoft 365 F1 / F3 (eligibility-gated)",
         sub: "Shift, deskless, and field workers — retail associates, manufacturing operators, hospitality staff, healthcare clinicians, first responders, field engineers. Frontline SKUs are eligibility-gated and capped by Microsoft.",
+        license: "Microsoft 365 F1 (Teams-first, no mailbox) or F3 (adds 2 GB Exchange + mobile Office) per user — eligibility-gated to deskless / shared-device workers; confirm the per-tenant cap before assigning",
         decisionBasis: "You picked Frontline worker. Microsoft's Product Terms restrict F1 / F3 to workers who do not primarily work at a desk, are not assigned a personal computer, and often share a device. Assigning F SKUs to information workers / admins is a compliance risk Microsoft can audit — so this result also highlights the eligibility rule alongside the SKU shape.",
         bullets: [
           "F1 — entry tier: Teams, SharePoint (browse), Yammer / Viva Engage, Stream, Office for the web (view-only), Intune, Entra ID P1 — no mailbox. For light Teams-first deskless workers.",
@@ -2663,6 +2716,7 @@
         badgeClass: "badge-premium",
         title: "Education — Microsoft 365 A1 / A3 / A5 (qualifying academic institution)",
         sub: "Faculty and students at qualifying academic institutions. A-SKUs are eligibility-gated and priced separately from commercial; faculty and student SKUs have different entitlements.",
+        license: "Microsoft 365 A1, A3, or A5 (faculty and student SKUs differ) — institution must be an accredited K-12 / higher-ed organization validated by Microsoft Education",
         decisionBasis: "You picked Education. The Microsoft Education Product Terms restrict A-SKUs to accredited K-12 or higher-education institutions and split entitlements between faculty and student SKUs. Microsoft validates eligibility before tenant provisioning. The recommended tier mirrors the commercial E1 / E3 / E5 feature shape at academic pricing.",
         bullets: [
           "A1 — included with qualifying education tenants: Office for the web, Teams for Education, SharePoint, OneDrive (with capped storage), basic Intune for Education, Entra ID P1 (faculty) / Entra ID Free (student).",
@@ -2691,6 +2745,7 @@
         badgeClass: "badge-warning",
         title: "US Government — GCC, GCC High, or DoD (sovereign clouds)",
         sub: "Microsoft 365 for US public sector. Eligibility, data residency, accreditation (FedRAMP High / DoD IL2 / IL4 / IL5 / IL6), and feature parity differ from commercial — always validate before buying.",
+        license: "Microsoft 365 G1 / G3 / G5 (and F1 / F3 for frontline) in the appropriate sovereign cloud — GCC, GCC High, or DoD. Eligibility validated by Microsoft FedCiv; feature parity differs by cloud.",
         decisionBasis: "You picked Government. Microsoft 365 G3 / G5 (and F SKUs in government) mirror commercial Enterprise SKUs, but Microsoft's Government Product Terms restrict eligibility to US federal / state / local / tribal governments, the DoD, and qualifying contractors. Feature parity with commercial differs by cloud (GCC vs GCC High vs DoD) — the linked Microsoft Learn pages enumerate which services / features are available in each.",
         bullets: [
           "GCC (Government Community Cloud) — runs on Azure Commercial regions with government screening. FedRAMP High. For US federal, state, local, and tribal governments and their contractors handling CUI but not ITAR. Closest feature parity to commercial Microsoft 365.",
@@ -2721,6 +2776,7 @@
         badgeClass: "badge-premium",
         title: "Nonprofit — discounted / granted SKUs under Microsoft Nonprofits",
         sub: "Qualifying charitable organizations enrolled in the Microsoft Nonprofits program get discounted SKUs and, for the smallest orgs, a limited grant tier of Business Premium. Eligibility is validated annually.",
+        license: "Microsoft 365 Business Premium grant (up to 300 free seats) — or Nonprofit Staff Pricing on Business / Enterprise SKUs. Requires active Microsoft Nonprofits enrollment and annual re-validation.",
         decisionBasis: "You picked Nonprofit. Microsoft Nonprofits restricts grants and Nonprofit Staff Pricing to public-benefit / charitable organizations with recognized legal status (e.g. 501(c)(3) in the US). The grant tier (up to 300 free Business Premium seats) and Nonprofit Staff Pricing are both gated to organizations enrolled and re-validated annually through the Microsoft Nonprofits program.",
         bullets: [
           "Microsoft 365 Business Premium grant — up to 300 free seats per validated nonprofit (where available). After the grant cap, additional seats use Business Premium Nonprofit Staff Pricing.",
@@ -2747,6 +2803,7 @@
         badgeClass: "badge-premium",
         title: "Small / mid-size business (≤ 300 seats) — Microsoft 365 Business Basic / Standard / Premium",
         sub: "Commercial organizations with a hard 300-seat cap across Business SKUs. Above 300 seats you must move to the Enterprise (E) family.",
+        license: "Microsoft 365 Business Basic, Standard, or Premium per user (hard 300-seat cap across all Business SKUs combined). Premium is the smallest tier that includes Defender for Business + Intune + Entra ID P1.",
         decisionBasis: "You picked SMB. Microsoft's Business family has a hard, contractually enforced 300-seat cap across all Business SKUs combined. The recommendation is the lowest Business tier that covers the security posture you actually deploy — Business Premium is the smallest SKU that includes Defender for Business, Intune, and Entra ID P1. At 300+ seats Microsoft requires the tenant to switch to Enterprise SKUs.",
         bullets: [
           "Microsoft 365 Business Basic — Exchange Online (50 GB), Teams, SharePoint, OneDrive, Office for the web only. No desktop Office apps. Lowest cost.",
@@ -2775,6 +2832,7 @@
         badgeClass: "badge-info",
         title: "External ID / B2B guest — billed by Monthly Active Users (MAU), not per-user license",
         sub: "Guests, partners, vendors, and contractors invited into your tenant are licensed under Entra External ID's MAU model — not a per-seat M365 license.",
+        license: "No per-seat license. Microsoft Entra External ID is billed by Monthly Active Users (first 50,000 MAU per tenant free); premium P1 / P2 / Verified ID layer on at per-MAU rates.",
         decisionBasis: "You picked External ID / B2B guest. The Microsoft Entra External ID pricing page explicitly bills guest identities by Monthly Active Users (MAU), not per-seat M365 licenses. The first 50,000 MAU per tenant are free; premium features (P1 / P2 / Verified ID) layer on at per-MAU rates. Guests don't need M365 service licenses to consume content shared with them.",
         bullets: [
           "Monthly Active Users (MAU) — Entra External ID counts unique guest users who authenticate at least once in a calendar month. Microsoft grants the first 50,000 MAU free per tenant; beyond that, billed monthly.",
@@ -2980,6 +3038,12 @@
             <h3 class="result-title">${escapeHtml(node.title)}</h3>
             <p class="result-sub">${escapeHtml(node.sub)}</p>
           </div>
+
+          ${node.license ? `
+          <div class="result-license">
+            <p class="result-license__label">Required license</p>
+            <p class="result-license__sku">${escapeHtml(node.license)}</p>
+          </div>` : ""}
 
           ${govCalloutHtml}
 
@@ -3504,10 +3568,11 @@
     };
 
     // ASCII fallbacks for characters outside CP1252 that appear in this
-    // app's copy (mostly arrows used in UI affordances).
+    // app's copy (mostly arrows and a few math symbols used in UI affordances).
     const PDF_ASCII_FALLBACK = {
       "\u2192": "->", "\u2190": "<-", "\u2197": "(new tab)",
-      "\u21D2": "=>", "\u00A0": " ", "\u200B": ""
+      "\u21D2": "=>", "\u00A0": " ", "\u200B": "",
+      "\u2264": "<=", "\u2265": ">="
     };
 
     function pdfEscapeChar(ch) {
@@ -3708,6 +3773,11 @@
       blocks.push({ style: "h1", text: node.title });
       if (node.sub) blocks.push({ style: "p", text: node.sub });
 
+      if (node.license) {
+        blocks.push({ style: "h2", text: "Required license" });
+        blocks.push({ style: "p", text: node.license });
+      }
+
       if (node.decisionBasis) {
         blocks.push({ style: "h2", text: "Why this is the recommendation" });
         blocks.push({ style: "p", text: node.decisionBasis });
@@ -3778,6 +3848,7 @@
         `Result: ${node.title}`,
         `${node.sub}`,
         ``,
+        ...(node.license ? [`Required license: ${node.license}`, ``] : []),
         `Recommendations:`,
         ...(node.bullets || []).map(b => `  - ${b}`),
         ``,
