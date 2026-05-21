@@ -895,6 +895,95 @@
       margin: 0 2px;
     }
 
+    /* Independent / not-Microsoft disclaimer shown above the assessment card
+       and inside every result (so printed/PDF copies carry it too). */
+    .disclaimer {
+      margin: 0 0 12px;
+      padding: 10px 14px;
+      border-left: 3px solid var(--ms-warning);
+      background: #fff8f0;
+      color: #5b3a00;
+      font-size: 13px;
+      line-height: 1.45;
+      border-radius: 4px;
+    }
+    .disclaimer strong { color: #3a2700; }
+    [data-theme="dark"] .disclaimer {
+      background: #2a2014;
+      color: #fbe4c2;
+      border-left-color: #ffb866;
+    }
+    [data-theme="dark"] .disclaimer strong { color: #ffe7c2; }
+    .disclaimer--result {
+      margin: 14px 0 0;
+    }
+    /* Block injected at the top of every printed/PDF result page. Hidden on
+       screen; revealed by @media print. */
+    .print-only { display: none; }
+    .print-header {
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #999;
+    }
+    .print-header__title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+    .print-header__meta  { font-size: 11px; color: #555; margin: 0; }
+    .print-footer {
+      margin-top: 24px;
+      padding-top: 10px;
+      border-top: 1px solid #999;
+      font-size: 11px;
+      color: #555;
+    }
+
+    /* ---------- Print / Save-as-PDF stylesheet ----------
+       Strips navigation chrome, the marketing sections, and interactive
+       controls so a result page prints as a clean one-page report. The
+       result-hero / why-trail / bullets / docs all print as-is. */
+    @media print {
+      /* Always show the assessment, regardless of is-assessing class. */
+      body { background: white !important; color: black !important; }
+      .navbar, .footer, .hero, #why-profiles, #profiles, #licenses,
+      #how-it-works, #docs, #contribute,
+      .assessment-backbar, .shortcuts, .controls,
+      .btn-back, .actions, .question-context, .question-help { display: none !important; }
+
+      /* Reveal print-only blocks. */
+      .print-only { display: block !important; }
+
+      /* Flatten cards / hero panels for plain print. */
+      .section, .section__inner { padding: 0 !important; max-width: 100% !important; }
+      .assess-wrap { max-width: 100% !important; }
+      .card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+      }
+      .section__header { display: none !important; }
+      .result-hero {
+        border-left: 4px solid #555 !important;
+        background: #f5f5f5 !important;
+        color: black !important;
+      }
+      .result-hero .result-title,
+      .result-hero .result-sub { color: black !important; }
+      .result-badge {
+        background: #eee !important;
+        color: #333 !important;
+        border: 1px solid #999 !important;
+      }
+      .result-section { break-inside: avoid; page-break-inside: avoid; }
+      .result-why__list li { break-inside: avoid; page-break-inside: avoid; }
+      .why-a { background: #eee !important; color: #333 !important; border: 1px solid #bbb !important; }
+      a { color: black !important; text-decoration: underline; }
+      .disclaimer {
+        background: #fff8f0 !important;
+        color: black !important;
+        border-left: 3px solid #d97706 !important;
+      }
+      @page { margin: 14mm 12mm; }
+    }
+
     /* Result */
     .result-badge {
       display: inline-flex;
@@ -1426,6 +1515,11 @@
         </div>
 
         <div class="assess-wrap">
+          <p class="disclaimer" role="note">
+            <strong>Not official Microsoft advice.</strong> This is an independent community helper for scoping
+            Microsoft 365 / Entra licensing. Microsoft Product Terms are the source of truth — verify any
+            recommendation with your Microsoft account team or licensing partner before purchase.
+          </p>
           <div class="controls">
             <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
             <span class="step-label" id="stepLabel">Step 1</span>
@@ -2548,21 +2642,31 @@
     function renderResult(node) {
       const back = backButton();
       const tenant = selectedTenantValue();
+      const tenantLabel = selectedTenantLabel();
       const tenantNote = tenantHint(node, tenant);
       const docsHtml = linkListHtml(node.docs);
       const bulletsHtml = (node.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join("");
       const whyHtml = renderWhyTrail();
-      // If the node defines custom actions, those REPLACE the default Start over / Copy row.
+      const printedOn = new Date().toLocaleString();
+      // If the node defines custom actions, those REPLACE the default Start over / Copy / Print row.
       const actionsHtml = node.actions
         ? renderActions(node.actions)
         : `
           <div class="actions">
             <button class="btn btn-yes" onclick="restart()">Start over</button>
             <button class="btn btn-secondary" onclick="copySummary()">Copy summary</button>
+            <button class="btn btn-secondary" onclick="printReport()">Print / Save as PDF</button>
           </div>`;
       $app.innerHTML = `
         ${back}
         <article>
+          <div class="print-only print-header">
+            <p class="print-header__title">M365 Profiles — licensing decision</p>
+            <p class="print-header__meta">
+              Tenant baseline: ${escapeHtml(tenantLabel)} · Generated ${escapeHtml(printedOn)}
+            </p>
+          </div>
+
           <div class="result-hero ${node.badgeClass || ""}">
             <span class="result-badge ${node.badgeClass}">${escapeHtml(node.badge)}</span>
             <h3 class="result-title">${escapeHtml(node.title)}</h3>
@@ -2587,6 +2691,18 @@
             <h3>Microsoft documentation &amp; M365 Maps</h3>
             <ul>${docsHtml}</ul>
           </div>` : ""}
+
+          <p class="disclaimer disclaimer--result" role="note">
+            <strong>Not official Microsoft advice.</strong> This recommendation is generated by an
+            independent community decision tree. Microsoft’s Product Terms and the Microsoft 365
+            service descriptions are the legal source of truth. Confirm SKUs, entitlements, and
+            pricing with your Microsoft account team or licensing partner before purchase.
+          </p>
+
+          <div class="print-only print-footer">
+            Generated by M365 Profiles — https://billmcilhargey.github.io/m365-profiles/ ·
+            Independent community helper, not affiliated with Microsoft, not official Microsoft guidance.
+          </div>
 
           ${actionsHtml}
         </article>
@@ -2902,10 +3018,20 @@
       return entry && entry.value ? entry.value : "none";
     }
 
-    // Friendly label for the tenant baseline (used in the Copy summary).
+    // Friendly label for the tenant baseline (used by the Copy summary and
+    // the printed/PDF report header).
     function selectedTenantLabel() {
       const entry = state.history.find(h => h.id === "start_tenant");
       return entry ? entry.answer : "Not selected";
+    }
+
+    // Trigger the browser's print dialog. The user can pick "Save as PDF" as
+    // the destination on macOS / Windows / Linux / iOS / Android. The print
+    // stylesheet hides chrome and reveals the disclaimer header/footer.
+    function printReport() {
+      const node = TREE[state.currentId];
+      if (!node || !node.result) { flash("Print / PDF is only available on a result screen"); return; }
+      window.print();
     }
 
     function copySummary() {
@@ -2914,6 +3040,7 @@
       const tenant = selectedTenantLabel();
       const lines = [
         `M365 Profiles — licensing decision`,
+        `Generated: ${new Date().toLocaleString()}`,
         `Tenant baseline: ${tenant}`,
         ``,
         `Result: ${node.title}`,
@@ -2927,7 +3054,12 @@
           if (h.kind === "choice") return `  - ${h.questionText} -> ${h.answer}`;
           if (h.kind === "info" || h.kind === "nav" || h.kind === "result-jump") return `  - (${h.questionText} -> continue)`;
           return `  - ${h.questionText} -> ${String(h.answer).toUpperCase()}`;
-        })
+        }),
+        ``,
+        `Disclaimer: Not official Microsoft advice. This recommendation is generated by an`,
+        `independent community decision tree at https://billmcilhargey.github.io/m365-profiles/.`,
+        `Verify SKUs, entitlements, and pricing with your Microsoft account team or licensing`,
+        `partner. Microsoft Product Terms are the source of truth.`
       ];
       const text = lines.join("\n");
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3083,6 +3215,7 @@
     window.goBack = goBack;
     window.restart = restart;
     window.copySummary = copySummary;
+    window.printReport = printReport;
 
     initTheme();
     render();
