@@ -2694,23 +2694,30 @@
       },
 
       // ---------- Results ----------
+      // Previously a terminal "result" with fuzzy "E3 or Business Premium
+      // or F1/F3" wording. Now an info / stepping-stone node: explains that
+      // the admin needs a real user license too, then routes through the
+      // knowledge-worker disambiguation (q_iw_security → q_iw_copilot_*)
+      // so the user lands on a SPECIFIC SKU (M365 E3 / E3+Copilot / E5 / E7).
       result_service: {
-        result: true,
-        badge: "License required",
+        info: true,
+        badge: "License needed",
         badgeClass: "badge-warning",
-        title: "Service license required",
-        sub: "This account is a service-consuming user, not just an admin.",
-        license: "Microsoft 365 E3 at minimum (or Business Premium for ≤ 300 seats, or F1/F3 for frontline) — upgrade to E5/E7 if the account also performs privileged admin work or uses Copilot",
-        decisionBasis: "You answered Yes to consuming a Microsoft 365 user-facing service (Exchange / Teams / SharePoint / OneDrive / Office). Those services are per-user licensed — the account needs a base plan that includes the workloads it touches, regardless of any admin role it also holds.",
-        bullets: [
-          "Assign at minimum a base Microsoft 365 plan that covers the services used (e.g. Microsoft 365 E3 or Business Premium; F1/F3 if frontline only).",
-          "If the same account also performs privileged admin work, upgrade to M365 E5 (includes Entra ID P2 + Purview E5 + Defender Suite).",
-          "For Copilot or Agent 365 usage, add the Microsoft 365 Copilot add-on or move to M365 E7 (Frontier Suite)."
+        title: "This admin needs a real user license too",
+        sub: "Microsoft 365 services are per-user licensed — anyone who reads mail, joins Teams, or opens Office docs needs a base plan, not just an admin role.",
+        paragraphs: [
+          "Best practice (Microsoft's own recommendation): keep a separate admin-only account that doesn't read mail, doesn't join Teams meetings, and doesn't open Office documents. That account often needs only Entra ID Free — much cheaper than a full M365 user license.",
+          "Because you said this account does consume Microsoft 365 services, it needs a per-user service license on top of whatever admin work it does. The next two quick questions narrow that down to a specific SKU (Microsoft 365 E3, E3 + Copilot, E5, or E7).",
+          "If your tenant is on Business Premium, Frontline, Education, Government, or Nonprofit, the E3 / E5 / E7 answer maps directly to your equivalent SKU (Business Premium ≈ E3, A3 ≈ E3, A5 ≈ E5, G3 ≈ E3, G5 ≈ E5, NSP E3 ≈ E3, NSP E5 ≈ E5)."
         ],
         docs: [
           ["Microsoft Entra licensing overview", "https://learn.microsoft.com/entra/fundamentals/licensing"],
           ["Compare Microsoft 365 Enterprise plans", "https://www.microsoft.com/microsoft-365/enterprise/microsoft365-plans-and-pricing"],
-          ["M365 Maps — Enterprise plan comparison", "https://m365maps.com/Microsoft%20365%20Enterprise.htm"]
+          ["Why separate admin accounts matter", "https://learn.microsoft.com/entra/identity/role-based-access-control/best-practices"]
+        ],
+        actions: [
+          { label: "Find the exact license →", target: "q_iw_security", tone: "primary" },
+          { label: "← Back to question", target: "start", tone: "secondary" }
         ]
       },
       result_service_principal: {
