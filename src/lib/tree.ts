@@ -33,6 +33,59 @@ export type Action = {
 
 export type Rationale = { why?: string; yes?: string; no?: string };
 
+/**
+ * Licensing/scoping model for a single product or feature inside an
+ * "in-scope umbrella" question (e.g. q_purview_e5 covers IRM, Comm Compliance,
+ * eDiscovery, etc., each of which has its own scope rules).
+ *
+ *  - per-user      : license required per user benefiting from the feature.
+ *  - per-device    : license required per managed/protected device.
+ *  - per-mailbox   : license required per protected mailbox.
+ *  - tenant-wide   : feature is configured tenant-level; cannot be scoped to a
+ *                    subset of users; license requirement still applies to
+ *                    every user "benefitting" per Product Terms.
+ *  - mixed         : combination (e.g. tenant configuration + per-user license).
+ */
+/**
+ * How a feature is licensed and scoped under Microsoft's Product Terms.
+ *
+ * - per-user / per-device / per-mailbox: assignment-driven. License is
+ *   attached to the principal that actually consumes the feature.
+ * - tenant-wide-scopeable: feature is enabled centrally, but its policy can be
+ *   limited to a named user / group / recipient set. Only the targeted users
+ *   need the licence. (e.g. Defender for Office Safe Attachments policies,
+ *   Purview DLP policies, Sensitivity Label auto-labelling.)
+ * - tenant-wide-not-scopeable: once enabled, the feature covers every user /
+ *   mailbox / device in the tenant. Product Terms require every covered user
+ *   to be licensed — there is no "only Alice" option. (e.g. Customer Key,
+ *   Customer Lockbox, Advanced Message Encryption.)
+ */
+export type ScopeKind =
+  | "per-user"
+  | "per-device"
+  | "per-mailbox"
+  | "tenant-wide-scopeable"
+  | "tenant-wide-not-scopeable";
+
+export type ProductScopeItem = {
+  /** Product / feature display name (e.g. "Insider Risk Management (IRM)"). */
+  name: string;
+  /** Short SKU tag shown after the name (e.g. "M365 E5 / E5 Compliance / Purview Suite"). */
+  sku?: string;
+  /** Licensing/scoping model — drives the badge color. */
+  scope: ScopeKind;
+  /** 1–2 sentences explaining what "scope" means for this feature. */
+  scopeNote: string;
+  /** Plain-language description of when THIS user / admin is in scope. */
+  inScopeMeans: string;
+  /** Optional contrast — when this user is NOT in scope even though the feature is enabled. */
+  notInScopeMeans?: string;
+  /** Concrete Yes / No examples for this product. */
+  examples?: string[];
+  /** Per-product source links. */
+  docs?: DocLink[];
+};
+
 export type TreeNode = {
   step?: StepMeta;
   question?: string;
@@ -40,6 +93,16 @@ export type TreeNode = {
   helpLink?: { label: string; target: string };
   rationale?: Rationale;
   examples?: string[];
+  /** Optional intro shown above the per-product breakdown checklist. */
+  breakdownIntro?: string;
+  /**
+   * Per-product breakdown for "in-scope umbrella" questions. When present,
+   * each product is rendered as an expandable card showing its own scope
+   * model (per-user / tenant-wide / etc.), what "in scope" means, examples,
+   * and citations. The umbrella Yes/No buttons still drive navigation —
+   * Yes = at least one product applies to this user.
+   */
+  productBreakdown?: ProductScopeItem[];
   techDocs?: DocLink[];
   docs?: DocLink[];
   paragraphs?: string[];

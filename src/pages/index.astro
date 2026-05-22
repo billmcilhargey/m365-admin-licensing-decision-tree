@@ -79,6 +79,44 @@ const profiles = [
   },
 ];
 
+// Scope kinds — mirrors the ScopeKind union in src/lib/tree.ts and the
+// .scope-badge--* palette in src/pages/assessment.astro so the visual
+// language carries from the home page into the assessment itself.
+const scopes = [
+  {
+    key: "per-user",
+    title: "Per user",
+    desc: "Licensed user-by-user. You pay for and assign the SKU to each individual identity that benefits.",
+    examples:
+      "Most Microsoft 365 SKUs — E3 / E5 / Copilot, Entra ID P1 / P2, and most Purview features.",
+  },
+  {
+    key: "per-device",
+    title: "Per device",
+    desc: "Licensed to the device, not the user. The feature follows the onboarded endpoint.",
+    examples: "Defender for Endpoint P2, Endpoint DLP, and Intune device licences.",
+  },
+  {
+    key: "per-mailbox",
+    title: "Per mailbox",
+    desc: "Licensed per Exchange Online mailbox that the feature acts on.",
+    examples: "Exchange Online Plan 1 / Plan 2 and Exchange Online Archiving.",
+  },
+  {
+    key: "tenant-wide-scopeable",
+    title: "Tenant-wide, scopeable",
+    desc: "Enabled at the tenant level, but you can scope its effect down to specific users, groups, or recipients via product configuration.",
+    examples:
+      "Defender for Office 365 P2 (recipient filters), Defender for Cloud Apps (Scoped Deployment), Defender XDR.",
+  },
+  {
+    key: "tenant-wide-not-scopeable",
+    title: "Tenant-wide, not scopeable",
+    desc: "Once enabled, the benefit applies tenant-wide; the product has no control to limit it to a subset of users. Microsoft's Product Terms still expect every benefitting user to be licensed.",
+    examples: "Customer Lockbox, Customer Key, and Defender for Identity.",
+  },
+];
+
 const title = HOME_TITLE;
 const description =
   "Match a Microsoft 365 identity profile — admin, knowledge worker, frontline, education, government, nonprofit, SMB, or guest — to the right license tier, with sources cited and a branded PDF handout.";
@@ -101,7 +139,7 @@ const description =
         >, and the new <strong>M365 E7 (Frontier Suite)</strong>.
       </p>
       <div class="hero__cta">
-        <a class="btn btn-primary btn--lg" href={`${base}/assessment`}>Start the assessment →</a>
+        <a class="btn btn-primary btn--lg" href={`${base}/assessment?restart=1`}>Start the assessment →</a>
         <a class="btn btn-secondary btn--lg" href={`${base}/profiles`}>Browse profiles</a>
         <a class="btn btn-ghost" href={`${base}/about`}>How it works</a>
       </div>
@@ -137,7 +175,7 @@ const description =
       <div class="grid grid--3 profile-grid">
         {
           profiles.map((p) => (
-            <a class="card card--interactive profile-card" href={`${base}/assessment`}>
+            <a class="card card--interactive profile-card" href={`${base}/assessment?restart=1`}>
               <div class="profile-card__icon" aria-hidden="true">
                 {p.icon}
               </div>
@@ -145,6 +183,32 @@ const description =
               <p>{p.desc}</p>
               <span class="profile-card__link">Start tree →</span>
             </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Scopes preview -->
+  <section class="section">
+    <div class="container">
+      <header class="section__header">
+        <h2>Five ways a feature gets scoped</h2>
+        <p>
+          Every premium feature in the tree is tagged with one of these scopes so you know exactly
+          who needs the licence and whether you can dial it down.
+        </p>
+      </header>
+      <div class="grid grid--3 scope-grid">
+        {
+          scopes.map((s) => (
+            <article class={`card scope-card scope-card--${s.key}`}>
+              <span class={`scope-card__badge scope-card__badge--${s.key}`}>{s.title}</span>
+              <p class="scope-card__desc">{s.desc}</p>
+              <p class="scope-card__examples">
+                <strong>Examples:</strong> {s.examples}
+              </p>
+            </article>
           ))
         }
       </div>
@@ -186,7 +250,7 @@ const description =
     <div class="container cta__inner">
       <h2>Ready when you are.</h2>
       <p>One tab, no signup, no tracking. Average run takes 90&nbsp;seconds.</p>
-      <a class="btn btn-primary btn--lg" href={`${base}/assessment`}>Start the assessment →</a>
+      <a class="btn btn-primary btn--lg" href={`${base}/assessment?restart=1`}>Start the assessment →</a>
     </div>
   </section>
 </Base>
@@ -298,6 +362,126 @@ const description =
     color: var(--ms-blue);
     font-weight: 600;
     font-size: var(--fs-sm);
+  }
+
+  /* Scope cards — palette mirrors the .scope-badge--* rules in
+     src/pages/assessment.astro so the home page and the assessment
+     speak the same visual language. Each card carries a 4px left
+     stripe in its scope colour. */
+  .scope-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    border-left: 4px solid transparent;
+  }
+  .scope-card__badge {
+    align-self: flex-start;
+    display: inline-block;
+    padding: 0.18rem 0.55rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .scope-card__desc {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+  .scope-card__examples {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: var(--fs-xs);
+    line-height: 1.55;
+  }
+
+  /* per-user — blue */
+  .scope-card--per-user {
+    border-left-color: #0b4a8a;
+  }
+  .scope-card__badge--per-user {
+    background: #e8f1fe;
+    color: #0b4a8a;
+    border-color: #b9d4f4;
+  }
+  /* per-device — green */
+  .scope-card--per-device {
+    border-left-color: #1f5d2a;
+  }
+  .scope-card__badge--per-device {
+    background: #eef5ee;
+    color: #1f5d2a;
+    border-color: #c2dec5;
+  }
+  /* per-mailbox — purple */
+  .scope-card--per-mailbox {
+    border-left-color: #4a2a8a;
+  }
+  .scope-card__badge--per-mailbox {
+    background: #f1ecfb;
+    color: #4a2a8a;
+    border-color: #d4c4ee;
+  }
+  /* tenant-wide-scopeable — calm teal */
+  .scope-card--tenant-wide-scopeable {
+    border-left-color: #0f5b6a;
+  }
+  .scope-card__badge--tenant-wide-scopeable {
+    background: #e0f2f4;
+    color: #0f5b6a;
+    border-color: #a6d6dd;
+  }
+  /* tenant-wide-not-scopeable — true warning red */
+  .scope-card--tenant-wide-not-scopeable {
+    border-left-color: #7a1d1d;
+  }
+  .scope-card__badge--tenant-wide-not-scopeable {
+    background: #fbe1e1;
+    color: #7a1d1d;
+    border-color: #efb4b4;
+  }
+
+  :root[data-theme="dark"] .scope-card__badge--per-user {
+    background: #14304f;
+    color: #cfe3ff;
+    border-color: #2a5688;
+  }
+  :root[data-theme="dark"] .scope-card--per-user {
+    border-left-color: #2a5688;
+  }
+  :root[data-theme="dark"] .scope-card__badge--per-device {
+    background: #173820;
+    color: #c8e8cf;
+    border-color: #2f6238;
+  }
+  :root[data-theme="dark"] .scope-card--per-device {
+    border-left-color: #2f6238;
+  }
+  :root[data-theme="dark"] .scope-card__badge--per-mailbox {
+    background: #271a44;
+    color: #dccff2;
+    border-color: #4d3585;
+  }
+  :root[data-theme="dark"] .scope-card--per-mailbox {
+    border-left-color: #4d3585;
+  }
+  :root[data-theme="dark"] .scope-card__badge--tenant-wide-scopeable {
+    background: #173338;
+    color: #b0e0e6;
+    border-color: #336670;
+  }
+  :root[data-theme="dark"] .scope-card--tenant-wide-scopeable {
+    border-left-color: #336670;
+  }
+  :root[data-theme="dark"] .scope-card__badge--tenant-wide-not-scopeable {
+    background: #4a1818;
+    color: #fbc8c8;
+    border-color: #872a2a;
+  }
+  :root[data-theme="dark"] .scope-card--tenant-wide-not-scopeable {
+    border-left-color: #872a2a;
   }
 
   .steps {

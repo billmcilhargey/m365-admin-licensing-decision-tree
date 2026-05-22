@@ -412,6 +412,202 @@ export const TREE = {
       "Yes example: The admin account is added as a test user inside an Insider Risk Management policy, or is in the user scope of an endpoint DLP policy that monitors their device.",
       "No example: The admin opens the Purview portal under the 'Insider Risk Management' role group to triage alerts, manage incidents, and tune policies, but is NOT included in any policy's monitored-user scope."
     ],
+    breakdownIntro: "Microsoft Purview E5 is an umbrella of ~12 features with different scoping models. Expand each row to see how that feature is scoped (per-user, per-mailbox, or tenant-wide configuration), what 'in scope' means in plain language, an example, and the Microsoft source. Answer Yes below if THIS user is in scope of at least ONE of these features as a monitored / test / protected user. Starred (*) cards are tenant-wide and not scopeable \u2014 they are informational only and do not count toward 'at least one applies'; expand them for Microsoft's two official statements (SFI and Product Terms) and decide the licence call for those features separately.",
+    productBreakdown: [
+      {
+        name: "Insider Risk Management (IRM)",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Configurable per-user scope. Each IRM policy targets a defined set of users; only users included in at least one IRM policy's user scope need the license.",
+        inScopeMeans: "this user (or their device) is included in the user / device scope of an IRM policy — either as a monitored user, a test user during pilot, or via a Priority User Group.",
+        notInScopeMeans: "this user only OPERATES IRM (via the Insider Risk Management role group) — triaging alerts, tuning policies, investigating cases — without being inside any policy's monitored scope.",
+        examples: [
+          "Yes: The admin's own account is added as a test user inside a Data Theft IRM policy during pilot.",
+          "No: The IRM analyst manages alerts for 5,000 monitored users but their own account is excluded from every IRM policy scope."
+        ],
+        docs: [
+          ["IRM — subscriptions and licensing", "https://learn.microsoft.com/purview/insider-risk-management-configure#subscriptions-and-licensing"],
+          ["IRM — get started / policy scope", "https://learn.microsoft.com/purview/insider-risk-management-policies"]
+        ]
+      },
+      {
+        name: "Communication Compliance",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Configurable per-user scope. Each Communication Compliance policy explicitly targets users / groups whose Exchange / Teams / Yammer communications will be reviewed.",
+        inScopeMeans: "this user is in the 'Users and groups to supervise' scope of a Communication Compliance policy.",
+        notInScopeMeans: "this user only acts as a reviewer / investigator via the Communication Compliance role group, and is not themselves a supervised user.",
+        examples: [
+          "Yes: The admin is included in a Communication Compliance policy that scans their Teams chats for harassment keywords.",
+          "No: HR Compliance reviewer triages flagged messages for monitored employees but is not themselves supervised."
+        ],
+        docs: [
+          ["Communication Compliance — get started", "https://learn.microsoft.com/purview/communication-compliance-configure"],
+          ["Communication Compliance licensing", "https://learn.microsoft.com/purview/communication-compliance-solution-overview#subscriptions-and-licensing"]
+        ]
+      },
+      {
+        name: "Adaptive Protection",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. Adaptive Protection assigns risk levels to users based on IRM signals and dynamically applies DLP / Conditional Access controls — only users with an E5-tier Purview licence are evaluated.",
+        inScopeMeans: "this user is in scope of Adaptive Protection (i.e. an in-scope IRM user whose risk level drives downstream DLP / CA enforcement).",
+        examples: [
+          "Yes: The admin is an in-scope IRM user; their Adaptive Protection risk level dynamically tightens DLP rules on their endpoint.",
+          "No: The admin is excluded from every IRM policy, so Adaptive Protection never assigns them a risk level."
+        ],
+        docs: [
+          ["Adaptive Protection overview", "https://learn.microsoft.com/purview/insider-risk-management-adaptive-protection"]
+        ]
+      },
+      {
+        name: "Endpoint DLP",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-device",
+        scopeNote: "Per-device licence assigned via the user signed in. Endpoint DLP policies target devices but enforce per-user — every user signing into an onboarded device whose activity is evaluated needs an E5-tier licence.",
+        inScopeMeans: "this user signs into an Endpoint-DLP-onboarded device that has an active DLP policy applied to their account / location.",
+        notInScopeMeans: "this user only configures Endpoint DLP policies in Purview, and their own workstation is not onboarded.",
+        examples: [
+          "Yes: The admin's laptop is onboarded for Endpoint DLP and a 'block USB copy of sensitive files' policy targets their account.",
+          "No: The DLP admin manages Endpoint DLP policies that target 10,000 other devices; their own workstation is not onboarded."
+        ],
+        docs: [
+          ["Endpoint DLP — get started", "https://learn.microsoft.com/purview/endpoint-dlp-getting-started"],
+          ["DLP licensing requirements", "https://learn.microsoft.com/purview/dlp-microsoft-teams#licensing-requirements"]
+        ]
+      },
+      {
+        name: "Premium eDiscovery (eDiscovery Premium)",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user — required on BOTH custodians (whose mailboxes / OneDrive / Teams are searched) AND eDiscovery users (case members who run premium searches, review sets, predictive coding).",
+        inScopeMeans: "this user is either added as a custodian in any premium case, OR is an eDiscovery case member running premium-tier searches / review sets / analytics.",
+        notInScopeMeans: "this user only runs Standard (Core) eDiscovery searches, which are included in E3.",
+        examples: [
+          "Yes: The admin is named as a custodian on an active premium case.",
+          "Yes: The eDiscovery Manager runs review sets / predictive coding in a premium case.",
+          "No: The admin only runs Standard content searches across the tenant."
+        ],
+        docs: [
+          ["eDiscovery subscription / licensing", "https://learn.microsoft.com/purview/ediscovery-subscription-licensing"],
+          ["eDiscovery (Premium) overview", "https://learn.microsoft.com/purview/ediscovery-overview"]
+        ]
+      },
+      {
+        name: "Auto-labeling (sensitivity & retention)",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. Manual labelling is included in E3; SERVICE-SIDE auto-labelling of files / emails / SharePoint sites — and auto-application of retention labels — requires an E5-tier licence per user benefiting.",
+        inScopeMeans: "this user's mailbox / OneDrive / SharePoint content is targeted by an auto-labelling policy that automatically applies sensitivity or retention labels to their files / emails.",
+        notInScopeMeans: "this user only applies sensitivity labels MANUALLY in Office apps (manual labelling is E3).",
+        examples: [
+          "Yes: An auto-labelling policy scans the admin's OneDrive and auto-applies 'Confidential' to files matching a PII pattern.",
+          "No: The admin manually picks sensitivity labels in Word; no auto-policy targets their content."
+        ],
+        docs: [
+          ["Apply a sensitivity label automatically", "https://learn.microsoft.com/purview/apply-sensitivity-label-automatically"],
+          ["Auto-apply retention labels", "https://learn.microsoft.com/purview/retention-label-flow"]
+        ]
+      },
+      {
+        name: "Records Management",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. Declaring records, event-based retention, file plan / disposition review, and proof-of-disposition all require E5-tier per user whose content is retained as a record.",
+        inScopeMeans: "this user's content (mailbox / OneDrive / SharePoint) is subject to a retention LABEL policy that declares items as records, or they participate in disposition review.",
+        notInScopeMeans: "the user is only under basic retention POLICIES (E3-included), with no record-declaration / disposition-review label applied.",
+        examples: [
+          "Yes: A 'Contract – 7yr Record' label that declares items as records is applied to the admin's OneDrive.",
+          "No: The user is only under a basic 'retain everything for 3 years' retention policy."
+        ],
+        docs: [
+          ["Records Management overview", "https://learn.microsoft.com/purview/records-management"],
+          ["Disposition of content", "https://learn.microsoft.com/purview/disposition"]
+        ]
+      },
+      {
+        name: "Customer Lockbox",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Technically tenant-wide and not scopeable. Customer Lockbox is a single tenant toggle and the approval workflow applies to every Microsoft engineer support request that could touch any mailbox / SharePoint / OneDrive / Teams content in the tenant. Microsoft Product Terms still require an E5-tier licence (M365 E5, E5 Compliance, Purview Suite, or the Information Protection & Compliance add-on) for every user whose data could be subject to such a request \u2014 in practice every active mailbox / OneDrive in the tenant. Microsoft's Secure Future Initiative (Protect Tenants and Isolate Production Systems pillar) recommends enabling Customer Lockbox so that no Microsoft engineer can access tenant content without explicit customer approval.",
+        inScopeMeans: "Customer Lockbox is enabled tenant-wide and this user has a mailbox / OneDrive / SharePoint footprint that a Microsoft engineer could need to access during a support case.",
+        notInScopeMeans: "Customer Lockbox is disabled tenant-wide.",
+        examples: [
+          "Yes: Customer Lockbox is enabled; the admin's mailbox could be subject to a Microsoft access request requiring tenant-admin approval.",
+          "No: The tenant has not enabled Customer Lockbox."
+        ],
+        docs: [
+          ["Customer Lockbox in Microsoft 365", "https://learn.microsoft.com/purview/customer-lockbox-requests"],
+          ["Microsoft Purview service description \u2014 Customer Lockbox", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-purview-service-description#microsoft-purview-customer-lockbox"],
+          ["Microsoft Product Terms", "https://www.microsoft.com/licensing/terms/"],
+          ["Microsoft Secure Future Initiative (SFI)", "https://www.microsoft.com/en-us/trust-center/security/secure-future-initiative"]
+        ]
+      },
+      {
+        name: "Customer Key",
+        sku: "M365 E5 + Customer Key add-on",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Technically tenant-wide and not scopeable. Once enabled with customer-provided RSA / availability keys, the Customer Key data-encryption policy re-encrypts every mailbox / file / chat across Exchange Online / SharePoint / OneDrive / Teams under those keys. Microsoft's Customer Key documentation states verbatim that \u201Ceach mailbox must meet licensing requirements to use Customer Key,\u201D so Microsoft Product Terms require a per-user E5-tier licence (M365 E5 + Customer Key add-on, or equivalent) for every user whose data is encrypted. Microsoft's Secure Future Initiative (Protect Tenants and Isolate Production Systems pillar) supports customer-controlled encryption keys as a defence-in-depth measure on top of Microsoft-managed encryption.",
+        inScopeMeans: "the tenant has assigned a Customer Key data-encryption policy that covers this user's mailbox / files / chats.",
+        notInScopeMeans: "the tenant uses Microsoft-managed keys only (the default).",
+        examples: [
+          "Yes: The tenant has provisioned Customer Key with HSM-backed RSA keys; the admin's mailbox is encrypted under those keys.",
+          "No: The tenant has never enabled Customer Key."
+        ],
+        docs: [
+          ["Customer Key overview", "https://learn.microsoft.com/purview/customer-key-overview"],
+          ["Microsoft Purview service description \u2014 Customer Key", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-purview-service-description#microsoft-purview-customer-key"],
+          ["Microsoft Product Terms", "https://www.microsoft.com/licensing/terms/"],
+          ["Microsoft Secure Future Initiative (SFI)", "https://www.microsoft.com/en-us/trust-center/security/secure-future-initiative"]
+        ]
+      },
+      {
+        name: "Information Barriers",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. Each user assigned to a segment (and therefore subject to communication restrictions in Teams / SharePoint / OneDrive) needs the E5-tier licence.",
+        inScopeMeans: "this user is assigned to an Information Barriers segment and is therefore prevented from communicating / collaborating with users in incompatible segments.",
+        notInScopeMeans: "Information Barriers segments exist but this user is not assigned to any segment.",
+        examples: [
+          "Yes: The admin's account is assigned to the 'Research' segment, blocking chats with users in 'Sales'.",
+          "No: The admin only manages Information Barriers policies and is not in any segment themselves."
+        ],
+        docs: [
+          ["Information Barriers overview", "https://learn.microsoft.com/purview/information-barriers"]
+        ]
+      },
+      {
+        name: "Privileged Access Management for Office (PAM)",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. PAM gates just-in-time approval for high-risk Exchange Online / Office 365 tasks (e.g. mailbox export, journaling). Requestors and approvers both need the licence.",
+        inScopeMeans: "this user is a requestor (an Office admin needing JIT approval for a privileged task) OR an approver in a PAM approval group.",
+        notInScopeMeans: "the tenant has not configured PAM for Office (note: this is separate from Entra PIM — different feature).",
+        examples: [
+          "Yes: The admin can only run New-MailboxExportRequest after a PAM-approved JIT activation.",
+          "No: The admin holds permanent Exchange Online admin rights and the tenant has not enabled Office PAM."
+        ],
+        docs: [
+          ["Privileged Access Management for Office 365", "https://learn.microsoft.com/purview/privileged-access-management"]
+        ]
+      },
+      {
+        name: "Audit (Premium)",
+        sku: "M365 E5 / E5 Compliance / Purview Suite",
+        scope: "per-user",
+        scopeNote: "Per-user. Premium audit (1-year retention by default, longer with add-on; high-value events like MailItemsAccessed, Send, SearchQueryInitiated) requires E5-tier per audited user. E3 gets Standard audit (180-day retention, fewer events).",
+        inScopeMeans: "this user's high-value audit events (MailItemsAccessed, Send, SearchQueryInitiated, etc.) are being recorded — i.e. they have an E5-tier licence assigned and Audit (Premium) is enabled.",
+        notInScopeMeans: "this user only has E3 — Standard audit applies (no MailItemsAccessed, 180-day retention).",
+        examples: [
+          "Yes: The admin's mailbox-access events are recorded as MailItemsAccessed and retained for 1+ year.",
+          "No: The admin only has E3; their audit data is 180-day retention with no MailItemsAccessed records."
+        ],
+        docs: [
+          ["Audit (Premium)", "https://learn.microsoft.com/purview/audit-premium"],
+          ["Audit log retention policies", "https://learn.microsoft.com/purview/audit-log-retention-policies"]
+        ]
+      }
+    ],
     techDocs: [
       ["Microsoft Purview service description — which users need a license", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-purview-service-description#which-users-need-a-license"],
       ["Insider Risk Management — permissions vs. licensing", "https://learn.microsoft.com/purview/insider-risk-management-configure#subscriptions-and-licensing"],
@@ -423,21 +619,140 @@ export const TREE = {
   },
   q_defender: {
     step: { major: 4, sub: 3, subTotal: 5, label: "Premium service features" },
-    question: "Is the privileged admin themselves IN SCOPE of Defender Suite protection — meaning their own mailbox is protected by Defender for Office 365 Plan 2 features (Safe Links, Safe Attachments, attack simulation), their own device is onboarded to Defender for Endpoint Plan 2, or their own identity is monitored by Defender for Identity / Defender for Cloud Apps?",
-    help: "Important distinction: opening the Microsoft Defender portal (security.microsoft.com) to triage incidents, run advanced hunting, manage alerts, or operate Sentinel as a SOC analyst does NOT require a per-user Defender Suite license on the admin — those portals enforce role-group permissions (Security Reader, Security Operator, Security Admin, Global Reader, etc.), not per-user license assignment. The Defender Suite license applies per protected mailbox / device / identity — the users / devices being monitored. If the admin's own mailbox / device / identity is one of those, they need to be licensed.",
+    title: "Check whether the admin is personally protected by any Defender Suite component",
+    question:
+      "Is the admin's own mailbox, device, or identity covered by a Microsoft Defender for Office 365 P2, Defender for Endpoint P2, Defender for Identity, or Defender for Cloud Apps policy?",
+    sub: "Operating the Microsoft Defender portal as a SOC role is not a licence trigger. The trigger is whether the admin's own asset is one of the protected ones.",
+    help:
+      "Microsoft licenses the Defender Suite per protected mailbox, device, and identity. Opening security.microsoft.com to triage incidents, run advanced hunting, manage alerts, or operate Microsoft Sentinel under a Security Reader / Security Operator / Security Admin / Global Reader role does not by itself require a per-user Defender licence on the admin. The licence is required for each user, mailbox, or device that is actually receiving protection from the workload.",
+    paragraphs: [
+      "The Microsoft Defender Suite is an umbrella over four component workloads — Defender for Office 365, Defender for Endpoint, Defender for Identity, and Defender for Cloud Apps — plus the Microsoft Defender XDR correlation and incident layer. Each component has its own licensing dimension (per-mailbox, per-user, per-device, or tenant-level) and its own Service Description in Microsoft's Product Terms. The bundles that include all of them are Microsoft 365 E5, Microsoft 365 E5 Security, the Microsoft Defender Suite add-on (sometimes listed as the 'Defender for Customer-Year Engagement' bundle), Office 365 E5 + EMS E5 (overlapping coverage), or the new Microsoft 365 E7 (Frontier Suite, GA May 1 2026) which bundles E5 + Copilot + Entra Suite + Agent 365.",
+      "Important: portal operation and protection are licensed separately. Microsoft's Defender XDR licensing documentation is explicit that role-based access (Security Reader, Security Operator, Security Administrator, Global Reader, Compliance Administrator) controls what the admin can see and do in the portal, while per-mailbox / per-user / per-device assignment controls what is actually being protected. A SOC analyst with Security Operator role can investigate alerts for 50,000 mailboxes without holding a Defender for Office 365 P2 licence themselves, as long as their own mailbox is not also being protected.",
+      "If the admin runs a normal day-job mailbox (Exchange Online), uses a managed Windows / macOS / iOS / Android device that is enrolled in Defender for Endpoint, and signs in with an Entra-synced identity that Defender for Identity monitors, then they are personally a protected user on top of being a portal operator — and Microsoft requires every protected user to be licensed. The mini-cards below walk through each component so you can answer Yes if at least one applies to the admin themselves.",
+      "Microsoft Sentinel is intentionally out of the mini-card grid. Sentinel is licensed by Log Analytics workspace data-ingestion (per-GB or Commitment Tier), not per user. Operating Sentinel as a SOC analyst — even Sentinel-only customers — never creates a per-user Defender Suite licence requirement on the admin. It is referenced in the footnotes for completeness."
+    ],
     rationale: {
-      why: "The Microsoft Defender service description licenses Defender for Endpoint, Defender for Identity, Defender for Cloud Apps, and Defender for Office 365 P2 per protected user / device — not per portal operator. An SOC analyst can manage alerts for thousands of users without needing a Defender Suite license themselves, as long as their own mailbox / device / identity isn't separately in scope of those protections.",
-      yes: "the admin's own mailbox / device / identity is protected by Defender Suite, so they must be licensed at M365 E5, M365 E5 Security, or the Defender Suite add-on — same rule that applies to every other protected user.",
-      no: "no Defender Suite trigger for the admin themselves. Note: every USER / DEVICE protected by these workloads still needs a license — license them separately. We continue to Intune Suite features."
+      why:
+        "The Microsoft Defender Service Descriptions license Defender for Endpoint, Defender for Identity, Defender for Cloud Apps, and Defender for Office 365 P2 per protected user / mailbox / device — not per portal operator. A SOC analyst can investigate incidents for thousands of users without needing a Defender Suite licence themselves, as long as their own mailbox / device / identity is not separately in scope of those protections.",
+      yes:
+        "The admin's own mailbox / device / identity is protected by at least one Defender Suite component, so they must be licensed at M365 E5, M365 E5 Security, the Defender Suite add-on, or M365 E7 — the same rule that applies to every other protected user.",
+      no:
+        "No Defender Suite trigger for the admin themselves; we continue to the Intune Suite questions. Every other user, mailbox, or device protected by these workloads still needs to be licensed individually — they're handled in their own profile journeys."
     },
+    breakdownIntro:
+      "The Microsoft Defender Suite is four components plus a correlation layer, and each component is scoped differently per Microsoft's official service descriptions: Defender for Office 365 P2 is tenant-wide but scopeable (policies default to all mailboxes; admins should scope Safe Links / Safe Attachments / anti-phish policies to licensed mailboxes only), Defender for Endpoint P2 is per-device (enrollment-based), Defender for Identity is tenant-wide and not scopeable (the sensor sees every account in the forest), Defender for Cloud Apps is tenant-wide but scopeable (Scoped Deployment lets you limit it), and Defender XDR is the correlation layer that lights up wherever any of the four components is licensed. Answer Yes to the umbrella question if at least one component covers the admin personally. Starred (*) cards are tenant-wide and not scopeable \u2014 they are informational only and do not count toward 'at least one applies'; expand them for Microsoft's two official statements (SFI and Product Terms) and decide the licence call for those features separately.",
+    productBreakdown: [
+      {
+        name: "Defender for Office 365 Plan 2",
+        sku: "M365 E5 / M365 E5 Security / Defender for Office 365 P2 standalone / Office 365 E5",
+        scope: "tenant-wide-scopeable",
+        scopeNote:
+          "Tenant-wide by default but scopeable down to licensed mailboxes. Microsoft's Defender for Office 365 service description and the Standard / Strict preset security policies apply Safe Links, Safe Attachments, anti-phishing impersonation protection, Safe Attachments for SharePoint / OneDrive / Teams, Threat Explorer, Automated Investigation and Response (AIR), and Attack Simulation Training across the whole tenant unless you scope them. Admins should scope each policy (Safe Links, Safe Attachments, anti-phish, ASR Training campaigns) to only the user mailboxes / shared mailboxes / resource mailboxes / Microsoft 365 groups that actually hold a Defender for Office 365 P2 entitlement — either by using the preset policy 'Users, groups, and domains' include lists, or by building custom policies with explicit recipient scoping. Microsoft Product Terms require a per-mailbox licence for every mailbox covered by the scope you configure (user mailbox, shared mailbox, resource mailbox, room, or equipment).",
+        inScopeMeans:
+          "the admin's own Exchange Online mailbox falls inside the recipient scope of a Safe Links / Safe Attachments / anti-phish policy (or the Standard / Strict preset), or is enrolled in Attack Simulation Training as a trainee.",
+        notInScopeMeans:
+          "every Defender for Office 365 P2 policy explicitly excludes the admin's mailbox (or the admin has no Exchange Online mailbox at all), and they are not enrolled in any ASR Training campaign — they only operate the Defender portal for other users.",
+        examples: [
+          "Yes: the admin's mailbox is included in the 'Strict' preset security policy that applies Safe Links and Safe Attachments across the tenant.",
+          "Yes: the admin is enrolled as a trainee in an Attack Simulation Training campaign targeted at the IT department group.",
+          "No: every Safe Links / Safe Attachments / anti-phish policy is scoped to the 'mdo-p2-licensed' Microsoft 365 group, and the admin's break-glass account is deliberately excluded."
+        ],
+        docs: [
+          ["Microsoft Defender for Office 365 service description", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-defender-service-description#microsoft-defender-for-office-365"],
+          ["Recipient filters for Defender for Office 365 policies", "https://learn.microsoft.com/defender-office-365/recipient-filters-in-preset-security-policies"],
+          ["Preset security policies (Standard / Strict)", "https://learn.microsoft.com/defender-office-365/preset-security-policies"],
+          ["Defender for Office 365 plans and pricing", "https://learn.microsoft.com/defender-office-365/mdo-security-comparison"]
+        ]
+      },
+      {
+        name: "Defender for Endpoint Plan 2",
+        sku: "M365 E5 / M365 E5 Security / Defender for Endpoint P2 standalone (per-user or per-device)",
+        scope: "per-device",
+        scopeNote:
+          "Per onboarded endpoint. Microsoft's Defender for Endpoint licensing guide allows two purchase models: per-user (each user covers up to 5 devices, the M365 E5 / E5 Security path) or per-device standalone (typically used for shared / kiosk / OT endpoints). EDR, attack-surface-reduction reporting, automated investigation, advanced hunting on device data, vulnerability management, and threat-and-vulnerability remediation all require a P2 entitlement on the device.",
+        inScopeMeans:
+          "the admin's own Windows, macOS, Linux, iOS, or Android device is onboarded to Defender for Endpoint (visible in the Defender portal's Device Inventory) under their identity.",
+        notInScopeMeans:
+          "the admin uses a Privileged Access Workstation that is enrolled separately under a service account, or never operates from a managed device that reports to Defender for Endpoint.",
+        examples: [
+          "Yes: the admin's managed laptop is onboarded to Defender for Endpoint and shows up under their user in the Device Inventory.",
+          "No: the admin only ever uses an Azure VM jumpbox that has no Defender for Endpoint sensor installed."
+        ],
+        docs: [
+          ["Defender for Endpoint licensing options", "https://learn.microsoft.com/defender-endpoint/minimum-requirements#licensing-requirements"],
+          ["Compare Defender for Endpoint plans", "https://learn.microsoft.com/defender-endpoint/defender-endpoint-plan-1-2"]
+        ]
+      },
+      {
+        name: "Defender for Identity",
+        sku: "M365 E5 / M365 E5 Security / EMS E5 / Defender for Identity standalone",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote:
+          "Technically tenant-wide and not scopeable. The Microsoft Defender service description states verbatim that \u201CMicrosoft Defender for Identity features are enabled at the tenant level for all users within the tenant\u201D and that the service \u201Cisn't currently capable of limiting benefits to specific users.\u201D The sensor on Domain Controllers / AD FS / AD CS / Entra Connect observes every account in the monitored forest \u2014 you cannot scope it to a subset. Microsoft Product Terms still require a per-user Defender for Identity / EMS E5 / M365 E5 licence for every user who benefits from the service. Microsoft's Secure Future Initiative (Secure by Default principle) recommends enabling identity-threat protection like MDI on every tenant that has on-premises AD.",
+        inScopeMeans:
+          "the tenant has deployed any Defender for Identity sensor (on a Domain Controller, AD FS, AD CS, or Entra Connect server) \u2014 every user monitored by that sensor benefits, including the admin.",
+        notInScopeMeans:
+          "the tenant has not deployed any Defender for Identity sensor on any Domain Controller, AD FS, AD CS, or Entra Connect server.",
+        examples: [
+          "Yes: any Defender for Identity sensor is running anywhere in the tenant's monitored forest \u2014 the admin (along with every other monitored user) is a beneficiary and needs a licence.",
+          "No: a greenfield tenant with no Defender for Identity sensors deployed; the licence is not yet triggered for anyone."
+        ],
+        docs: [
+          ["Microsoft Defender for Identity service description", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-defender-service-description#microsoft-defender-for-identity"],
+          ["Defender for Identity prerequisites (licensing)", "https://learn.microsoft.com/defender-for-identity/deploy/prerequisites-sensor-version-2#licensing-requirements"],
+          ["Microsoft Product Terms", "https://www.microsoft.com/licensing/terms/"],
+          ["Microsoft Secure Future Initiative (SFI)", "https://www.microsoft.com/en-us/trust-center/security/secure-future-initiative"]
+        ]
+      },
+      {
+        name: "Defender for Cloud Apps",
+        sku: "M365 E5 / M365 E5 Security / EMS E5 / Defender for Cloud Apps standalone",
+        scope: "tenant-wide-scopeable",
+        scopeNote:
+          "Tenant-wide by default but scopeable. The Microsoft Defender service description states \u201CBy default, Microsoft Defender for Cloud Apps is enabled at the tenant level for all users within the tenant\u201D and then provides an explicit Scoped Deployment capability so admins can limit the service to licensed users / groups. Microsoft Product Terms require a per-user licence for every user covered by the scope you configure \u2014 Conditional Access App Control sessions, file / activity / OAuth-app policies, and attributed Cloud Discovery activity all count.",
+        inScopeMeans:
+          "the admin's identity is included in the configured Scoped Deployment, or no scoped deployment is configured (so the tenant default applies), and Defender for Cloud Apps activity / file / OAuth / session policies cover them.",
+        notInScopeMeans:
+          "a Scoped Deployment explicitly excludes the admin's identity, and no Conditional Access App Control or activity policy targets them.",
+        examples: [
+          "Yes: a Conditional Access App Control policy routes the admin's Salesforce / ServiceNow / Microsoft 365 sessions through Defender for Cloud Apps reverse-proxy for download restrictions.",
+          "No: Scoped Deployment is configured to include only the Sales group; the admin is in IT and explicitly excluded."
+        ],
+        docs: [
+          ["Microsoft Defender for Cloud Apps service description", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-defender-service-description#microsoft-defender-for-cloud-apps"],
+          ["Defender for Cloud Apps scoped deployment", "https://learn.microsoft.com/defender-cloud-apps/scoped-deployment"],
+          ["Defender for Cloud Apps licensing data-sheet", "https://learn.microsoft.com/defender-cloud-apps/editions-cloud-app-security"]
+        ]
+      },
+      {
+        name: "Microsoft Defender XDR (correlation and incident layer)",
+        sku: "Entitled wherever at least one of the four components above is licensed",
+        scope: "tenant-wide-scopeable",
+        scopeNote:
+          "Tenant-level entitlement. Defender XDR is the cross-workload correlation, incident grouping, advanced hunting (KQL), automated investigation, and unified portal experience at security.microsoft.com. It does not have a separate per-user SKU. Customers gain Defender XDR automatically when they license any of Defender for Office 365 P2, Defender for Endpoint P2, Defender for Identity, or Defender for Cloud Apps — and visibility / response scope is limited to whichever components are licensed for the affected user, mailbox, or device.",
+        inScopeMeans:
+          "the tenant has at least one Defender component licensed and the admin's role lets them see incidents that include the admin's own protected assets.",
+        notInScopeMeans:
+          "the tenant has no Defender components licensed (Defender XDR has nothing to correlate), or the admin's role does not include incident visibility.",
+        examples: [
+          "Yes: the tenant holds M365 E5 for every information worker, so all four Defender workloads light up in the unified Defender XDR portal and incidents span email + endpoint + identity.",
+          "No: the tenant licenses Defender for Endpoint P1 only — Defender XDR does not show advanced incident correlation across other workloads because those components aren't licensed."
+        ],
+        docs: [
+          ["What is Microsoft Defender XDR", "https://learn.microsoft.com/defender-xdr/microsoft-365-defender"],
+          ["Defender XDR prerequisites and licensing", "https://learn.microsoft.com/defender-xdr/prerequisites"]
+        ]
+      }
+    ],
     examples: [
-      "Yes example: The admin's own mailbox receives Defender for Office 365 P2 Safe Links / Safe Attachments protection, OR their workstation is onboarded to Defender for Endpoint P2.",
-      "No example: SOC analyst signs into the Defender portal under the 'Security Operator' role to investigate incidents across the fleet, but their own admin-only account has no mailbox / device / Defender Suite scope of its own."
+      "Yes: the admin's mailbox is in scope of the Strict preset security policy and their laptop is onboarded to Defender for Endpoint — they need a Defender Suite-tier licence (E5 / E5 Security / Defender Suite add-on).",
+      "No: a SOC analyst signs into the Defender portal as Security Operator to investigate incidents across the fleet, but their cloud-only admin account has no mailbox, no managed device, and no synced identity — no per-user Defender licence is required for that account."
     ],
     techDocs: [
       ["Microsoft Defender XDR", "https://learn.microsoft.com/defender-xdr/microsoft-365-defender"],
       ["Defender for Endpoint plans", "https://learn.microsoft.com/defender-endpoint/microsoft-defender-endpoint"],
-      ["Microsoft Sentinel overview", "https://learn.microsoft.com/azure/sentinel/overview"]
+      ["Microsoft Sentinel — per-GB ingestion model (not per-user)", "https://learn.microsoft.com/azure/sentinel/billing"],
+      ["Microsoft Product Terms (Universal Licence Terms + Service-specific Terms)", "https://www.microsoft.com/licensing/terms/"]
     ],
     yes: "q_defender_breadth",
     no: "q_intune_suite"
@@ -731,15 +1046,130 @@ export const TREE = {
   },
   q_p2_bundle_check: {
     step: { major: 5, sub: 1, subTotal: 4, label: "Premium identity features" },
-    question: "Are these users ALREADY on M365 E5, M365 E7, EMS E5, Microsoft Defender Suite, Microsoft Entra Suite, or Entra ID Governance — any SKU that already includes Microsoft Entra ID P2?",
-    help: "If the user already holds a SKU that includes P2, no additional purchase is needed for PIM / Identity Protection. Otherwise the cheapest path is standalone Entra ID P2.",
+    title: "Check whether Entra ID P2 is already covered by another license",
+    question: "Is one of the six P2-inclusive licenses already assigned to every user who will use PIM or Identity Protection?",
+    sub: "Entra ID P2 is the gating license for PIM and Identity Protection. It is also bundled inside six other SKUs — so before you buy standalone P2, confirm whether the user is already covered.",
+    help: "Walk through the six SKUs below. Answer Yes only if every PIM eligible admin, approver, reviewer, and risk-policy user is assigned at least one of them (or standalone Entra ID P2) in the Microsoft 365 admin center. 'Assigned' means the license appears on the user's Licenses tab — your tenant owning a pool of E5 SKUs is not the same as a specific admin being assigned one.",
+    paragraphs: [
+      "Microsoft Entra ID P2 unlocks Privileged Identity Management (PIM), Identity Protection (sign-in risk + user risk + MFA registration policy), risk-based Conditional Access, and access reviews. Every user who benefits from any of those features must hold a license that includes P2.",
+      "Six commercial SKUs bundle Entra ID P2: Microsoft 365 E5, Microsoft 365 E7 (Frontier Suite), Enterprise Mobility + Security E5 (EMS E5), Microsoft Defender Suite, Microsoft Entra Suite, and Microsoft Entra ID Governance. If a user already has one of those, no separate P2 purchase is needed — you would just be paying twice for the same entitlement.",
+      "Confirm assignment, not ownership. Auditors check each individual user account, not the tenant's license pool. The fastest verification is Microsoft 365 admin center → Users → pick the user → Licenses & apps tab → look for a P2-inclusive SKU with a ticked box.",
+      "If your fleet is mixed (some admins on E5, some on E3), answer No here. Buying standalone Entra ID P2 for the handful of admins on a non-P2 SKU is far cheaper than discovering at audit that PIM eligibility was non-compliant for the uncovered users."
+    ],
     rationale: {
-      why: "Multiple Microsoft SKUs include Entra ID P2 — there is no reason to double-buy. Standalone P2 is the cheapest path only when the user isn't already on a P2-inclusive SKU.",
-      yes: "no additional purchase — verify the P2-inclusive SKU is assigned to every PIM eligible / approver / reviewer and every user in scope of risk policies.",
-      no: "buy Microsoft Entra ID P2 standalone, per user, for every admin and every approver / reviewer / risk-scoped user."
+      why: "Entra ID P2 is included in six different SKUs. Standalone Entra ID P2 is the cheapest path only when the user is not already on one of those — otherwise the recommendation would be a double-buy.",
+      yes: "skip the purchase — but confirm the P2-inclusive SKU is actually assigned (not just owned by the tenant) to every PIM eligible admin, approver, reviewer, and every user in scope of a risk-based Conditional Access, user-risk, or sign-in-risk policy.",
+      no: "buy Microsoft Entra ID P2 standalone, per user, for every admin and every approver / reviewer / risk-scoped user who is not already on a P2-inclusive SKU."
     },
+    breakdownIntro: "Tick through each P2-inclusive SKU. Answer Yes to the umbrella question only if every user who needs PIM or Identity Protection is assigned at least one of them (or standalone Entra ID P2). 'Assigned' means the license is ticked on the user's Licenses tab — owning the SKU at the tenant level is not enough.",
+    productBreakdown: [
+      {
+        name: "Microsoft 365 E5",
+        sku: "M365 E5 (commercial) / A5 (education) / G5 (US Gov)",
+        scope: "per-user",
+        scopeNote: "Per-user license assignment. Each user evaluated by PIM or Identity Protection must hold the SKU.",
+        inScopeMeans: "The user is assigned 'Microsoft 365 E5' (or A5 / G5) in the M365 admin center. Entra ID P2 is bundled inside, so no separate purchase is needed.",
+        notInScopeMeans: "The user is on M365 E3, Business Premium, an F-series SKU, or Office 365 E5 (Office 365 E5 is not the same as Microsoft 365 E5 and does not include Entra ID P2).",
+        examples: [
+          "Yes — privileged admin assigned 'Microsoft 365 E5' in the Licenses tab.",
+          "No — privileged admin only assigned 'Microsoft 365 E3' (Entra ID P1 only, no P2).",
+          "No — user is assigned 'Office 365 E5' (different SKU; does not include Entra ID P2)."
+        ],
+        docs: [
+          ["Microsoft 365 E5 product page", "https://www.microsoft.com/microsoft-365/enterprise/e5"],
+          ["M365 Maps — E5 contents", "https://m365maps.com/Microsoft%20365%20E5.htm"]
+        ]
+      },
+      {
+        name: "Microsoft 365 E7 (Frontier Suite)",
+        sku: "M365 E7 — GA May 1, 2026",
+        scope: "per-user",
+        scopeNote: "Per-user license assignment. E7 bundles E5 + Copilot + Entra Suite + Agent 365.",
+        inScopeMeans: "The user is assigned 'Microsoft 365 E7' in the Licenses tab. Entra ID P2 is included via the bundled E5 component.",
+        notInScopeMeans: "The user holds individual add-ons (E5 + Copilot + Entra Suite stacked separately) — those still cover P2, but answer Yes against the M365 E5 or Entra Suite row instead.",
+        examples: [
+          "Yes — executive assigned 'Microsoft 365 E7' to consolidate Copilot, Entra Suite, and E5 into one SKU.",
+          "No — user is on M365 E5 only (no E7); check the E5 or Entra Suite row instead."
+        ],
+        docs: [
+          ["Microsoft 365 E7 announcement", "https://learn.microsoft.com/partner-center/announcements/2026-may"],
+          ["Microsoft 365 Frontier Suite overview", "https://www.microsoft.com/microsoft-365/enterprise/microsoft365-plans-and-pricing"]
+        ]
+      },
+      {
+        name: "Enterprise Mobility + Security E5 (EMS E5)",
+        sku: "EMS E5 — standalone identity + security suite",
+        scope: "per-user",
+        scopeNote: "Per-user license. EMS E5 bundles Entra ID P2, Intune, AIP P2, Defender for Identity, and Defender for Cloud Apps.",
+        inScopeMeans: "The user is assigned 'Enterprise Mobility + Security E5' in the Licenses tab.",
+        notInScopeMeans: "The user holds EMS E3 (Entra ID P1 only — no P2) or has no EMS license at all.",
+        examples: [
+          "Yes — admin assigned 'EMS E5' on top of an Office 365 SKU.",
+          "No — admin is assigned 'EMS E3' (Entra ID P1 only; PIM and Identity Protection both require P2)."
+        ],
+        docs: [
+          ["EMS E5 product page", "https://www.microsoft.com/security/business/enterprise-mobility-security"],
+          ["M365 Maps — EMS E5 contents", "https://m365maps.com/Enterprise%20Mobility%20%2B%20Security%20E5.htm"]
+        ]
+      },
+      {
+        name: "Microsoft Defender Suite",
+        sku: "Defender Suite — security add-on (commercial)",
+        scope: "per-user",
+        scopeNote: "Per-user security add-on bundle. Includes Defender XDR, Entra ID P2, and Purview Audit (Premium).",
+        inScopeMeans: "The user is assigned 'Microsoft Defender Suite' in the Licenses tab. Entra ID P2 is bundled.",
+        notInScopeMeans: "The user holds individual Defender SKUs (Defender for Endpoint P2, Office P2, Identity, or Cloud Apps stacked separately). Those individual SKUs do not include Entra ID P2 unless purchased separately.",
+        examples: [
+          "Yes — SOC analyst assigned 'Microsoft Defender Suite' on top of M365 E3.",
+          "No — SOC analyst holds individual 'Defender for Endpoint P2' plus 'Defender for Identity' but no full Defender Suite SKU."
+        ],
+        docs: [
+          ["Microsoft Defender Suite overview", "https://learn.microsoft.com/defender-xdr/microsoft-365-defender"],
+          ["Microsoft Defender Suite licensing", "https://learn.microsoft.com/microsoft-365/security/defender/microsoft-365-security-center-mde"]
+        ]
+      },
+      {
+        name: "Microsoft Entra Suite",
+        sku: "Entra Suite — identity + network access add-on",
+        scope: "per-user",
+        scopeNote: "Per-user identity bundle. Includes Entra ID P2, Entra ID Governance, Internet Access, Private Access, and Verified ID.",
+        inScopeMeans: "The user is assigned 'Microsoft Entra Suite' in the Licenses tab. Entra ID P2 (and Governance) are bundled.",
+        notInScopeMeans: "The user is on Entra ID P1 plus Internet Access standalone — that combination does not include P2.",
+        examples: [
+          "Yes — admin assigned 'Microsoft Entra Suite' as the privileged-identity SKU.",
+          "No — admin is on Entra ID P1 only (Conditional Access works, but PIM and Identity Protection do not)."
+        ],
+        docs: [
+          ["Microsoft Entra Suite overview", "https://learn.microsoft.com/entra/fundamentals/entra-suite"],
+          ["Entra Suite pricing & contents", "https://www.microsoft.com/security/business/microsoft-entra-pricing"]
+        ]
+      },
+      {
+        name: "Microsoft Entra ID Governance",
+        sku: "Entra ID Governance — standalone governance add-on",
+        scope: "per-user",
+        scopeNote: "Per-user governance SKU. Bundles Entra ID P2 plus Entra ID Governance features (Entitlement Management, Lifecycle Workflows, ML-driven access reviews).",
+        inScopeMeans: "The user is assigned 'Microsoft Entra ID Governance' in the Licenses tab. Entra ID P2 is included.",
+        notInScopeMeans: "The user is only on Entra ID P1 — Governance and PIM both require P2.",
+        examples: [
+          "Yes — joiner/mover/leaver process owner assigned 'Microsoft Entra ID Governance'.",
+          "No — operator is on Entra ID P1 only; needs Governance or Entra Suite to cover PIM and Governance together."
+        ],
+        docs: [
+          ["Microsoft Entra ID Governance licensing fundamentals", "https://learn.microsoft.com/entra/id-governance/licensing-fundamentals"],
+          ["Microsoft Entra ID Governance overview", "https://learn.microsoft.com/entra/id-governance/identity-governance-overview"]
+        ]
+      }
+    ],
+    examples: [
+      "Yes — every PIM eligible admin in scope is assigned M365 E5. No additional P2 needed.",
+      "Yes — SOC analysts are on M365 E3 plus Microsoft Defender Suite. The Defender Suite includes P2 — no extra purchase.",
+      "Mixed → answer No — half the admins are on M365 E5 (covered) and half are on M365 E3 (not covered). Buy standalone P2 for the E3 admins.",
+      "No — admins are all on M365 E3, EMS E3, and standalone Defender for Endpoint P2. None of those include Entra ID P2."
+    ],
     techDocs: [
       ["PIM licensing fundamentals", "https://learn.microsoft.com/entra/id-governance/licensing-fundamentals#privileged-identity-management"],
+      ["Identity Protection licensing", "https://learn.microsoft.com/entra/id-protection/overview-identity-protection#license-requirements"],
       ["M365 security & compliance licensing guidance", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-365-security-compliance-licensing-guidance"],
       ["M365 Maps — Entra ID", "https://m365maps.com/Microsoft%20Entra%20ID.htm"]
     ],
@@ -1390,18 +1820,26 @@ export const TREE = {
     result: true,
     badge: "Already included",
     badgeClass: "badge-success",
-    title: "Entra ID P2 — already included in the user's SKU",
-    sub: "No additional purchase needed — the existing license already covers PIM and Identity Protection.",
-    license: "No additional license. P2 is already included in the SKU the user holds (M365 E5 / E7, EMS E5, Defender Suite, Entra Suite, or Entra ID Governance)",
-    decisionBasis: "You answered Yes to a P2 trigger AND the user is already on a SKU that includes Entra ID P2. No new purchase is required for these users — verify the assignment is active on every PIM eligible / approver / reviewer (and every user in scope of risk policies).",
+    title: "Entra ID P2 — already included in the user's existing license",
+    sub: "No additional purchase needed — provided every in-scope user is actually assigned a P2-inclusive SKU (not just covered by the tenant's license pool).",
+    license: "No additional license. Entra ID P2 is already included in the SKU the user holds (M365 E5 or E7, EMS E5, Defender Suite, Entra Suite, or Entra ID Governance).",
+    decisionBasis: "You confirmed that every user who will be a PIM eligible admin, approver, or reviewer — and every user in scope of a risk-based Conditional Access, user-risk, or sign-in-risk policy — is already assigned at least one P2-inclusive SKU. No new purchase is needed for those users. If you were uncertain about assignment, go back and answer No: buying standalone Entra ID P2 for a few extra admins is far cheaper than discovering at audit that PIM eligibility was non-compliant for the uncovered users.",
+    paragraphs: [
+      "Assignment vs entitlement — the distinction that matters at audit. The tenant owning a pool of E5 SKUs is not the same as a specific admin being assigned one. Auditors verify the license tick-box on each individual user account, not the tenant-wide pool. Before you rely on this answer, open the Microsoft 365 admin center, navigate to Users → the user → Licenses & apps, and confirm a P2-inclusive SKU is ticked.",
+      "Entra ID P2 must remain assigned for the entire time the user is in scope. If you assign an E5 SKU long enough to flag a PIM eligibility, then later remove the SKU but leave the eligibility in place, the configuration is non-compliant from that moment on. The same rule applies to Identity Protection — every user evaluated by a risk-based policy must hold the license at the moment the risk is evaluated, not just at policy creation time.",
+      "Entra ID Governance is a separate licensing dimension. PIM and Identity Protection are covered by any P2-inclusive SKU, but Entitlement Management access packages, Lifecycle Workflows, and ML-driven access reviews require an SKU that also bundles Entra ID Governance — only Microsoft Entra Suite, Microsoft 365 E7, and standalone Microsoft Entra ID Governance qualify. M365 E5, EMS E5, and Defender Suite do not."
+    ],
     bullets: [
-      "Verify the P2-inclusive SKU is actually assigned to every PIM-eligible admin, approver, and reviewer — auditors check assignment, not eligibility.",
-      "Same rule for Identity Protection: every user evaluated by a risk-based CA / user-risk / sign-in-risk policy must hold a P2-inclusive SKU.",
-      "Keep the SKU assigned for as long as the user is in scope — if you remove the SKU but leave the PIM eligibility, the policy is non-compliant.",
-      "If you add Governance features later (Entitlement Management access packages, Lifecycle Workflows), check whether the existing SKU also includes Governance — only Entra Suite, M365 E7, and standalone Entra ID Governance do."
+      "Verify the P2-inclusive SKU is actually assigned on every PIM-eligible admin, approver, and reviewer in the Microsoft 365 admin center — not just owned by the tenant.",
+      "Identity Protection follows the same rule: every user evaluated by a risk-based Conditional Access, user-risk, or sign-in-risk policy must hold the SKU at the moment the risk is evaluated.",
+      "Keep the SKU assigned for as long as the user is in scope. Removing the SKU while leaving the PIM eligibility or risk policy in place makes the configuration non-compliant.",
+      "If you also need Entra ID Governance features later (Entitlement Management access packages, Lifecycle Workflows, ML-driven access reviews), only Microsoft Entra Suite, M365 E7, and standalone Microsoft Entra ID Governance include those — M365 E5, EMS E5, and Defender Suite do not.",
+      "If even one in-scope admin is on a non-P2 SKU (for example M365 E3, Business Premium, an F-series plan, or Office 365 E5), go back and answer No — that admin needs standalone Entra ID P2."
     ],
     docs: [
       ["PIM licensing fundamentals", "https://learn.microsoft.com/entra/id-governance/licensing-fundamentals#privileged-identity-management"],
+      ["Identity Protection — license requirements", "https://learn.microsoft.com/entra/id-protection/overview-identity-protection#license-requirements"],
+      ["Assign or unassign licenses in the M365 admin center", "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users"],
       ["M365 security & compliance licensing guidance", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-365-security-compliance-licensing-guidance"]
     ]
   },
