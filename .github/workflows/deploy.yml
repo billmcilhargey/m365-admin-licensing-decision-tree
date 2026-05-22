@@ -1,11 +1,6 @@
 name: Deploy
 
-# Validates the decision tree, deploys the static site to GitHub Pages, and
-# publishes a CalVer GitHub Release (vYYYY.MM.DD-N) — all from one push to main.
-# `lint.yml` stays separate because it also runs on pull requests.
-#
-# Manual runs (`workflow_dispatch`) optionally take a `ref` to deploy a
-# specific branch / tag / SHA.
+# Build → validate → publish to GitHub Pages → tag CalVer release.
 
 on:
   push:
@@ -13,66 +8,98 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch, tag, or commit SHA to deploy (optional)'
+        description: "Branch, tag, or commit SHA to deploy (optional)"
         required: false
-        default: ''
+        default: ""
 
-permissions:
-  contents: write   # needed to create the Git tag + GitHub Release
-  pages: write      # needed for GitHub Pages deploy
-  id-token: write   # needed for OIDC-authenticated Pages deploy
+permissions: {}
 
-# One in-flight deploy at a time. Queue, don't cancel — every push to main
-# deserves its own deploy + release pair.
 concurrency:
   group: deploy
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Validate and build artifact
+    name: Build and validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.ver.outputs.tag }}
+      build_date: ${{ steps.ver.outputs.iso }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
-          fetch-depth: 0   # need tags for the [skip release] fallback below
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compute CalVer version
+        id: ver
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          date_part="$(date -u +%Y.%m.%d)"
+          iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          tag="v${date_part}-${RUN_NUMBER}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "iso=$iso" >> "$GITHUB_OUTPUT"
+          echo "Computed: $tag ($iso)"
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Astro build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            .astro
+            node_modules/.astro
+          key: astro-${{ runner.os }}-${{ hashFiles('package-lock.json', 'astro.config.mjs') }}-${{ hashFiles('src/**', 'public/**') }}
+          restore-keys: |
+            astro-${{ runner.os }}-${{ hashFiles('package-lock.json', 'astro.config.mjs') }}-
 
       - name: Validate decision tree
-        run: node scripts/validate-tree.js
+        run: npm run validate-tree
 
-      - name: Compute release version
-        id: ver
+      - name: Run quality checks (typecheck + lint + format)
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run format
+
+      - name: Resolve site URL and base
+        id: site
+        # Defaults from src/lib/config.js; override via Actions vars
+        # PUBLIC_SITE_URL / PUBLIC_SITE_BASE for forks.
         env:
-          RUN_NUMBER: ${{ github.run_number }}
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          OVERRIDE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          OVERRIDE_BASE: ${{ vars.PUBLIC_SITE_BASE }}
         run: |
           set -euo pipefail
-          # Mirrors the formula used by the release job below. On `[skip release]`
-          # runs no new tag will be created, so fall back to the most recent
-          # existing tag (or `dev` if the repo has never tagged a release).
-          if [[ "$COMMIT_MSG" == *"[skip release]"* ]]; then
-            version="$(git describe --tags --abbrev=0 2>/dev/null || echo dev)"
-          else
-            version="v$(date -u +%Y.%m.%d)-${RUN_NUMBER}"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Computed release version: $version"
+          default_url="$(node -e 'import("./src/lib/config.js").then(m=>process.stdout.write(m.CONFIG.origin))')"
+          default_base="$(node -e 'import("./src/lib/config.js").then(m=>process.stdout.write(m.CONFIG.base))')"
+          url="${OVERRIDE_URL:-$default_url}"
+          base="${OVERRIDE_BASE:-$default_base}"
+          echo "url=$url"   >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "Resolved site=$url base=$base"
 
-      - name: Inject release version into index.html
+      - name: Build Astro site
         env:
-          VERSION: ${{ steps.ver.outputs.version }}
-        run: |
-          set -euo pipefail
-          # Escape sed delimiter just in case (version is CalVer/ASCII, but be safe).
-          sed -i "s|__RELEASE_VERSION__|${VERSION}|g" index.html
-          grep -n "$VERSION" index.html | head -n 3 || true
+          PUBLIC_APP_VERSION: ${{ steps.ver.outputs.tag }}
+          PUBLIC_BUILD_DATE: ${{ steps.ver.outputs.iso }}
+          PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
+          PUBLIC_SITE_BASE: ${{ steps.site.outputs.base }}
+        run: npm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
@@ -80,13 +107,15 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          # Static site — publish the repo root.
-          path: '.'
+          path: "dist"
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -97,10 +126,10 @@ jobs:
 
   release:
     name: Tag and release (CalVer)
-    needs: deploy
+    needs: [build, deploy]
     runs-on: ubuntu-latest
-    # Skip release on manual `workflow_dispatch` runs that target a non-main
-    # ref, and allow opt-out via `[skip release]` in the commit message.
+    permissions:
+      contents: write
     if: |
       github.event_name == 'push' &&
       !contains(github.event.head_commit.message, '[skip release]')
@@ -111,23 +140,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute CalVer tag
-        id: ver
-        env:
-          RUN_NUMBER: ${{ github.run_number }}
-        run: |
-          set -euo pipefail
-          # Tag format: vYYYY.MM.DD-<run_number>. Run number guarantees
-          # uniqueness for multiple deploys on the same calendar day and
-          # monotonically increases across the repo's lifetime.
-          date_part="$(date -u +%Y.%m.%d)"
-          tag="v${date_part}-${RUN_NUMBER}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Computed tag: $tag"
-
       - name: Abort if tag already exists
         env:
-          TAG: ${{ steps.ver.outputs.tag }}
+          TAG: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
@@ -137,7 +152,7 @@ jobs:
 
       - name: Create and push tag
         env:
-          TAG: ${{ steps.ver.outputs.tag }}
+          TAG: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
@@ -147,11 +162,9 @@ jobs:
 
       - name: Generate release notes
         env:
-          TAG: ${{ steps.ver.outputs.tag }}
+          TAG: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          # Diff range: from the previous tag (excluding the one we just made)
-          # to HEAD. Falls back to the root commit when there's no prior tag.
           prev="$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -n1 || true)"
           if [[ -z "$prev" ]]; then
             range="$(git rev-list --max-parents=0 HEAD | tail -n1)..HEAD"
@@ -159,7 +172,11 @@ jobs:
             range="${prev}..HEAD"
           fi
           {
-            echo "## Changes"
+            echo "## ${TAG}"
+            echo
+            echo "Built: ${{ needs.build.outputs.build_date }}"
+            echo
+            echo "### Changes"
             echo
             git log --pretty=format:'- %s (%h)' "$range" || echo "- (no user-facing commits)"
             echo
@@ -168,7 +185,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.ver.outputs.tag }}
+          TAG: ${{ needs.build.outputs.version }}
         run: |
           gh release create "$TAG" \
             --title "$TAG" \

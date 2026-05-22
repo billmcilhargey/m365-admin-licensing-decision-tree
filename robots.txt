@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://billmcilhargey.github.io/m365-profiles/sitemap.xml

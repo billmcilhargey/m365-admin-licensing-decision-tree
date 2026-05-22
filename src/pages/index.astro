@@ -1,0 +1,344 @@
+---
+import Base from "@layouts/Base.astro";
+import { HOME_TITLE } from "@lib/site";
+import { baseUrl } from "@lib/paths";
+
+const base = baseUrl();
+
+const pillars = [
+  {
+    icon: "🎯",
+    title: "Right-size every license",
+    body: "Step-by-step questions narrow 60+ Microsoft 365 SKUs down to the exact tier each identity profile actually needs — no over-buying.",
+  },
+  {
+    icon: "📚",
+    title: "Cited at every step",
+    body: "Every question, recommendation and edge case links to Microsoft Learn or another primary source so your team can verify the logic.",
+  },
+  {
+    icon: "📄",
+    title: "PDF handout in one click",
+    body: "Generate a branded, citation-linked handout to share with your account team, CIO, or finance — no copy-paste, no slides.",
+  },
+  {
+    icon: "🔒",
+    title: "Stays in your browser",
+    body: "Static site. No accounts, no analytics, no telemetry, no cookies. Your answers live in this tab and disappear when you close it.",
+  },
+];
+
+const profiles = [
+  {
+    key: "admin",
+    icon: "🛡️",
+    title: "Privileged admin",
+    desc: "Dedicated admin / break-glass / service principal accounts. The full 12-question premium-feature tree.",
+  },
+  {
+    key: "iw",
+    icon: "💼",
+    title: "Information worker",
+    desc: "Desktop knowledge workers. E3 vs E3+Copilot vs E5 vs E7 (Frontier Suite).",
+  },
+  {
+    key: "frontline",
+    icon: "🦺",
+    title: "Frontline (F1 / F3)",
+    desc: "Shift, deskless, and field workers. Mailbox-less F1 vs mobile-Office F3.",
+  },
+  {
+    key: "edu",
+    icon: "🎓",
+    title: "Education (A1 / A3 / A5)",
+    desc: "Faculty and students at qualifying academic institutions.",
+  },
+  {
+    key: "gov",
+    icon: "🏛️",
+    title: "Government (G3 / G5 / IL6)",
+    desc: "GCC, GCC High, DoD IL5 and Air-Gapped IL6 sovereign clouds.",
+  },
+  {
+    key: "npo",
+    icon: "🤝",
+    title: "Nonprofit",
+    desc: "Validated nonprofits with grant + discount eligibility.",
+  },
+  {
+    key: "smb",
+    icon: "🏢",
+    title: "Small / mid-size business",
+    desc: "≤ 300 seats. Business Basic / Standard / Premium.",
+  },
+  {
+    key: "extid",
+    icon: "🌐",
+    title: "External ID / B2B / CIAM",
+    desc: "Partner, vendor, customer identities and MAU pricing.",
+  },
+];
+
+const title = HOME_TITLE;
+const description =
+  "Match a Microsoft 365 identity profile — admin, knowledge worker, frontline, education, government, nonprofit, SMB, or guest — to the right license tier, with sources cited and a branded PDF handout.";
+---
+
+<Base title={title} description={description} pageClass="page-home">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero__inner">
+      <span class="hero__pill">Independent · MIT-licensed · No tracking</span>
+      <h1 class="hero__title">The right Microsoft&nbsp;365 license for every profile.</h1>
+      <p class="hero__lede">
+        An interactive, source-cited decision tree that matches a Microsoft 365 identity profile to
+        the right license tier — across <strong>Entra ID Free / P1 / P2</strong>,
+        <strong>Entra ID Governance</strong>, <strong>Entra Suite</strong>, <strong
+          >M365 E3 / E5 / Business Premium / F1 / F3 / A1 / A3 / A5 / G3 / G5</strong
+        >, <strong>Defender Suite</strong>, <strong>Purview Suite</strong>,
+        <strong>Intune Suite</strong>, <strong>Teams Premium</strong>, <strong
+          >Microsoft 365 Copilot</strong
+        >, and the new <strong>M365 E7 (Frontier Suite)</strong>.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn-primary btn--lg" href={`${base}/assessment`}>Start the assessment →</a>
+        <a class="btn btn-secondary btn--lg" href={`${base}/profiles`}>Browse profiles</a>
+        <a class="btn btn-ghost" href={`${base}/about`}>How it works</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pillars -->
+  <section class="section">
+    <div class="container">
+      <div class="grid grid--2">
+        {
+          pillars.map((p) => (
+            <article class="card pillar">
+              <div class="pillar__icon" aria-hidden="true">
+                {p.icon}
+              </div>
+              <h3>{p.title}</h3>
+              <p>{p.body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Profiles preview -->
+  <section class="section section--accent">
+    <div class="container">
+      <header class="section__header">
+        <h2>Eight profiles, one decision tree</h2>
+        <p>Pick the one that fits the user, then answer two to twelve short questions.</p>
+      </header>
+      <div class="grid grid--3 profile-grid">
+        {
+          profiles.map((p) => (
+            <a class="card card--interactive profile-card" href={`${base}/assessment`}>
+              <div class="profile-card__icon" aria-hidden="true">
+                {p.icon}
+              </div>
+              <h3>{p.title}</h3>
+              <p>{p.desc}</p>
+              <span class="profile-card__link">Start tree →</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section">
+    <div class="container container--prose">
+      <h2>How the tree works</h2>
+      <ol class="steps">
+        <li>
+          <strong>Pick your tenant baseline</strong> — what's already purchased today (E3, E5, Business
+          Premium, F1/F3, A1/A3/A5, G3/G5, Nonprofit, or none). We only recommend what you actually need
+          on top.
+        </li>
+        <li>
+          <strong>Pick the identity profile</strong> — privileged admin, information worker, frontline,
+          education, government, nonprofit, SMB, or external guest.
+        </li>
+        <li>
+          <strong>Answer a few short questions</strong> — yes/no or multiple choice. Every screen explains
+          <em>why</em> we ask and cites the Microsoft Learn page that defines the rule.
+        </li>
+        <li>
+          <strong>Get a specific recommendation</strong> — a named SKU (not "consider E5") with rationale,
+          bullets, sovereign-cloud caveats, and footnotes.
+        </li>
+        <li>
+          <strong>Take the handout with you</strong> — download a branded PDF, copy a plain-text summary,
+          or print. No accounts, no email gates.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Big CTA -->
+  <section class="section cta">
+    <div class="container cta__inner">
+      <h2>Ready when you are.</h2>
+      <p>One tab, no signup, no tracking. Average run takes 90&nbsp;seconds.</p>
+      <a class="btn btn-primary btn--lg" href={`${base}/assessment`}>Start the assessment →</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .btn--lg {
+    padding: 0.85em 1.6em;
+    font-size: var(--fs-base);
+  }
+
+  .hero {
+    background: linear-gradient(150deg, var(--ms-blue-lighter), var(--color-bg) 75%);
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  :root[data-theme="dark"] .hero {
+    background: linear-gradient(150deg, #102040, #111827 75%);
+  }
+  .hero__inner {
+    text-align: center;
+  }
+  .hero__pill {
+    display: inline-block;
+    background: var(--ms-blue);
+    color: #fff;
+    border-radius: var(--radius-pill);
+    padding: 0.3rem 0.9rem;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  .hero__title {
+    font-size: clamp(1.75rem, 4vw, 3rem);
+    line-height: 1.15;
+    margin: 0 auto 1rem;
+    max-width: 820px;
+    letter-spacing: -0.015em;
+  }
+  .hero__lede {
+    max-width: 760px;
+    margin: 0 auto 1.75rem;
+    color: var(--color-text-soft);
+    font-size: var(--fs-md);
+  }
+  .hero__cta {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .pillar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .pillar__icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+  .pillar h3 {
+    margin: 0;
+    font-size: var(--fs-lg);
+  }
+  .pillar p {
+    color: var(--color-text-soft);
+    margin: 0;
+  }
+
+  .section__header {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 2rem;
+  }
+  .section__header h2 {
+    margin-bottom: 0.5rem;
+  }
+  .section__header p {
+    color: var(--color-text-soft);
+    margin: 0;
+  }
+
+  .profile-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    color: var(--color-text);
+  }
+  .profile-card:hover {
+    text-decoration: none;
+  }
+  .profile-card__icon {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+  .profile-card h3 {
+    margin: 0;
+    font-size: var(--fs-md);
+  }
+  .profile-card p {
+    color: var(--color-text-soft);
+    margin: 0;
+    font-size: var(--fs-sm);
+  }
+  .profile-card__link {
+    margin-top: 0.5rem;
+    color: var(--ms-blue);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+  }
+
+  .steps {
+    counter-reset: step;
+    padding-left: 0;
+    list-style: none;
+  }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 3rem;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -2px;
+    width: 32px;
+    height: 32px;
+    background: var(--ms-blue);
+    color: #fff;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--fs-sm);
+  }
+
+  .cta {
+    text-align: center;
+    padding: 4rem 0 5rem;
+  }
+  .cta h2 {
+    font-size: var(--fs-2xl);
+    margin-bottom: 0.5rem;
+  }
+  .cta p {
+    color: var(--color-text-soft);
+    margin-bottom: 1.5rem;
+  }
+</style>

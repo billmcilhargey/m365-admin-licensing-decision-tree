@@ -1,0 +1,52 @@
+name: 📖 Content / accuracy
+description: A licensing recommendation, question wording, or citation is wrong or out of date.
+title: "[content] "
+labels: ["content", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the tree accurate. Please cite the primary source
+        (Microsoft Learn, Microsoft Product Terms, m365maps.com, etc.) so we can
+        verify the change quickly.
+  - type: input
+    id: node_id
+    attributes:
+      label: Tree node id (if known)
+      description: The internal id from `src/data/tree.js` (e.g. `result_intune_suite`).
+    validations:
+      required: false
+  - type: input
+    id: page
+    attributes:
+      label: Page or step affected
+      description: URL or the question/result title.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What the site currently says
+    validations:
+      required: true
+  - type: textarea
+    id: should_say
+    attributes:
+      label: What it should say (and why)
+    validations:
+      required: true
+  - type: textarea
+    id: citation
+    attributes:
+      label: Primary source / citation
+      description: Direct link to the Microsoft Learn page, Product Terms entry, or other authoritative source.
+      placeholder: https://learn.microsoft.com/...
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I've read the disclaimer that this is an unofficial helper, not Microsoft guidance.
+          required: true

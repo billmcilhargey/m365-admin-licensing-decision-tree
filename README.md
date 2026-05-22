@@ -4,193 +4,194 @@
 [![Lint](https://github.com/billmcilhargey/m365-profiles/actions/workflows/lint.yml/badge.svg)](https://github.com/billmcilhargey/m365-profiles/actions/workflows/lint.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Live site](https://img.shields.io/badge/Live%20site-GitHub%20Pages-0078d4)](https://billmcilhargey.github.io/m365-profiles/)
-[![Stack](https://img.shields.io/badge/Stack-Vanilla%20HTML%20%2F%20CSS%20%2F%20JS-success)](index.html)
+[![Built with Astro](https://img.shields.io/badge/Built%20with-Astro%205-FF5D01)](https://astro.build/)
 
-An interactive, single-page decision tree that matches a **Microsoft 365
-identity profile** — privileged admin, information worker, frontline (F1/F3),
-education (A1/A3/A5), government (GCC / GCC High / DoD / IL6), nonprofit,
-SMB, or External ID guest — to the right license tier (Entra ID Free / P1 /
-P2, Entra ID Governance, Entra Suite, M365 E3 / E5 / Business Premium /
-F1 / F3 / A1 / A3 / A5 / G3 / G5, Defender Suite, Purview Suite, Intune
-Suite, Teams Premium, Microsoft 365 Copilot, or the new M365 E7
-**Frontier Suite**).
+Interactive decision tree that matches a **Microsoft 365 identity profile** —
+privileged admin, information worker, frontline (F1/F3), education (A1/A3/A5),
+government (GCC / GCC High / DoD / IL6), nonprofit, SMB, or External ID guest —
+to the right license tier.
 
 **Live site:** <https://billmcilhargey.github.io/m365-profiles/>
 
 > ⚠️ **Not official Microsoft guidance.** This is an independent community
-> helper — not a Microsoft product, not endorsed by Microsoft, and not a
-> substitute for professional licensing advice. Always verify SKUs and
-> entitlements with your Microsoft account team or licensing partner.
-> Microsoft Product Terms are the source of truth.
+> helper — not a Microsoft product, not endorsed by Microsoft. Always verify
+> SKUs and entitlements with your Microsoft account team. The Microsoft
+> Product Terms are the source of truth.
 
----
+## Highlights
 
-## What it is
+- Static multi-page Astro site — no backend, no analytics, no cookies.
+- 82 decision-tree nodes (28 questions, 7 choice screens, 4 info screens,
+  43 results), every edge verified reachable on every push.
+- Card-based UI with progress bar, source citations, full keyboard support,
+  and one-click PDF handout (jsPDF, lazy-loaded only on click).
+- Light / dark theme that respects `prefers-color-scheme` and persists locally.
+- Reference catalog at `/reference` renders every result node as a static,
+  indexable page for users without JavaScript.
+- Dynamic `robots.txt`, `sitemap-index.xml`, and `version.json` — forks and
+  custom domains work without editing static files.
+- Released as a CalVer GitHub Release on every push to `main`.
 
-- A single `index.html` file. No build step, no dependencies, no backend,
-  no telemetry, no cookies.
-- 38 decision-tree nodes (12 questions, 3 choice screens, 2 info screens,
-  21 results) — every edge verified reachable by
-  [`scripts/validate-tree.js`](scripts/validate-tree.js).
-- The privileged-admin path runs as a 12-question Yes/No tree; the other
-  seven profile paths land on curated single-screen guidance with
-  Microsoft Learn + [m365maps.com](https://m365maps.com/) citations.
-- A tenant-baseline picker on entry (E3 / E5 / Business Premium / F1 / F3 /
-  A1 / A3 / A5 / G3 / G5 / Nonprofit / none) plus a US-sovereign-cloud
-  sub-step (GCC / GCC High / DoD IL5 / Air-Gapped IL6) that layers a
-  feature-parity caveat on every result.
-- Light/dark theme, full keyboard support, mobile-first responsive,
-  reduced-motion aware, Copy summary + Print/Save-as-PDF on every result.
-
-## Why no framework?
-
-The site is one HTML file with inline CSS and vanilla JS. There are no
-third-party libraries, no network calls beyond the initial page load, no
-component model, and nothing that benefits from a bundler. Adding Astro,
-Next.js, or any SPA framework would inflate the dependency surface, add a
-CI build step, and gain nothing the user can see. **Stack is intentionally
-boring.**
-
-## Run it locally
+## Quick start
 
 ```bash
 git clone https://github.com/billmcilhargey/m365-profiles.git
 cd m365-profiles
-python3 -m http.server 8080   # or just open index.html in a browser
-# then visit http://localhost:8080
+npm ci
+
+npm run validate-tree   # verify the decision-tree wiring
+npm run dev             # http://localhost:4321/m365-profiles
+npm run build           # production build → ./dist
+npm run preview         # serve ./dist locally
 ```
 
-Validate the decision-tree wiring after edits:
+Requirements: **Node 20+** and **npm 10+**.
 
-```bash
-node scripts/validate-tree.js
-```
+## Configuration
 
-Run the same lint that CI runs:
+Every user-editable knob lives in **[`src/lib/config.js`](src/lib/config.js)** — a
+single `CONFIG` object read by the Astro config, the layout, the web manifest,
+the CSP meta tag, and the CI workflow. Edit one file and the change propagates
+everywhere. Derived helpers in `src/lib/site.ts`, `security.ts`, and `brand.ts`
+read from `CONFIG` and should not be edited directly.
 
-```bash
-npx --yes htmlhint@1.1.4 index.html 404.html
-npx --yes markdownlint-cli2 "**/*.md"
-```
+### Site identity
 
-## Deploy
+| Key | Default | What it controls |
+|---|---|---|
+| `origin` | `https://billmcilhargey.github.io` | Site origin (no trailing slash). `Astro.site`, JSON-LD `@id`, robots.txt sitemap, canonical URLs. Override with `PUBLIC_SITE_URL`. |
+| `base` | `/m365-profiles` | Site base path. `Astro.base` and every internal-link prefix. Override with `PUBLIC_SITE_BASE`. |
+| `name` | `M365 Profiles` | Brand name in navbar, footer, `<title>`, manifest, JSON-LD. |
+| `tagline` | `Microsoft 365 Licensing Decision Tree` | Home `<title>` suffix and JSON-LD `description`. |
+| `owner` | `Dr. Bill Mcilhargey` | Footer copyright, `<meta author>`, JSON-LD `Person`. |
+| `repo` | `billmcilhargey/m365-profiles` | GitHub `owner/repo` slug — drives `GITHUB_URL` and source deep-links. |
+| `defaultBranch` | `main` | Branch used in `blob/<branch>/…` deep-links. |
 
-Two GitHub Actions workflows ship with the repo:
+### Brand colors
+
+Mirror these in `src/styles/tokens.css` (`--ms-blue`, `--ms-blue-darkest`, `--ms-square-1..4`) — CSS can't import JS at runtime.
+
+| Key | Default | What it controls |
+|---|---|---|
+| `colors.blue` | `#0078d4` | Primary → `<meta theme-color>`, PDF headings. |
+| `colors.navy` | `#003e72` | Secondary → PDF headings, hover accents. |
+| `colors.squares` | `["#f25022","#7fba00","#00a4ef","#ffb900"]` | Four-square palette → nav logo + auto-derived favicon. |
+
+### Page metadata, manifest, and storage
+
+| Key | Default | What it controls |
+|---|---|---|
+| `defaultDescription` | *(see file)* | Fallback `<meta description>`. |
+| `language` / `direction` | `en` / `ltr` | `<html lang>` / `<html dir>` and JSON-LD `inLanguage`. |
+| `titleSeparator` | ` — ` | `pageTitle("X")` → `"X — Brand"`. |
+| `manifest.description` | *(see file)* | Install-prompt description. |
+| `manifest.display` | `minimal-ui` | PWA display mode. |
+| `manifest.orientation` | `any` | PWA orientation lock. |
+| `manifest.backgroundColor` | `#ffffff` | PWA splash background. |
+| `storage.theme` | `m365-theme` | localStorage key for color theme. |
+| `storage.knownVersion` | `m365-known-version` | localStorage key for cache-bust detection. |
+| `storage.assessmentStatePrefix` | `m365-assessment-state` | sessionStorage prefix; suffixed with `APP_VERSION` so deploys invalidate stale sessions. |
+
+### Security headers
+
+Delivered as `<meta>` tags from [`src/layouts/Base.astro`](src/layouts/Base.astro) — GitHub Pages can't set real HTTP headers. Loosen at your own risk.
+
+| Key | Default | What it controls |
+|---|---|---|
+| `security.csp` | strict same-origin (11 directives) | Joined with a `;` + space separator into `<meta http-equiv="Content-Security-Policy">`. |
+| `security.referrerPolicy` | `strict-origin-when-cross-origin` | `<meta name="referrer">`. |
+| `security.permissionsPolicy` | denies camera / mic / geolocation / FLoC | `<meta http-equiv="Permissions-Policy">`. |
+
+### External links and CI overrides
+
+- `CONFIG.externalSources` — array of `{ href, label }` rendered in the footer.
+- The deploy workflow resolves URL/base from Actions variables `PUBLIC_SITE_URL` / `PUBLIC_SITE_BASE` first, then falls back to `CONFIG.origin` / `CONFIG.base`. Forks can target their own Pages URL without editing `config.js`.
+
+## Editing the decision tree
+
+All decision logic lives in [`src/data/tree.js`](src/data/tree.js). Each node
+is one of: a `question` (yes/no), a `choice` (n-way picker), an `info` screen,
+or a terminal `result`. Workflow:
+
+1. Edit nodes in [`src/data/tree.js`](src/data/tree.js).
+2. Re-wire `yes` / `no` / `target` edges to point at your node ids.
+3. `npm run validate-tree` — confirms every edge resolves and every node is
+   reachable from the start node.
+4. `npm run build` to confirm the site still compiles.
+5. Open a PR — `lint.yml` re-runs validation, link-check, markdownlint, and
+   dependency review.
+
+## Versioning
+
+CI sets `PUBLIC_APP_VERSION` (CalVer `vYYYY.MM.DD-N`) and `PUBLIC_BUILD_DATE`
+before `astro build`, so every page, the footer, the PDF, and `/version.json`
+all bake the same string. On load the client fetches `/version.json` and, if a
+new build is detected, clears `sessionStorage` and reloads — users see the new
+release as soon as they revisit the tab.
+
+## Deployment
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| [`deploy.yml`](.github/workflows/deploy.yml) | push to `main`, `workflow_dispatch` | Validates the tree, publishes the repo root to GitHub Pages via `actions/deploy-pages@v5`, then tags + publishes a CalVer release (`vYYYY.MM.DD-N`). Add `[skip release]` to the commit message to skip tagging. |
-| [`lint.yml`](.github/workflows/lint.yml) | push + PR to `main`, `workflow_dispatch` | Runs HTMLHint, markdownlint-cli2, and the Lychee link checker. |
+| [`deploy.yml`](.github/workflows/deploy.yml) | push to `main`, manual | Validate tree → build → publish to GitHub Pages → tag CalVer release. Add `[skip release]` to skip tagging. |
+| [`lint.yml`](.github/workflows/lint.yml) | push + PR to `main` | Build + tree validation, markdownlint, link check, dependency review (PRs). |
 
-To enable Pages on a fork:
+**Enable Pages on a fork:** push to `main`, then **Settings → Pages → Source: GitHub Actions**.
 
-1. Push to `main`.
-2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-3. The deploy workflow runs on the next push.
-
-If you fork under a different owner, search-and-replace
-`billmcilhargey.github.io/m365-profiles` across [`index.html`](index.html),
-[`sitemap.xml`](sitemap.xml), and [`robots.txt`](robots.txt) so the OG tag,
-sitemap, and crawler hints stay correct. For a custom domain, add a `CNAME`
-file with the bare hostname and configure DNS + HTTPS under **Settings →
-Pages**.
+**Custom domain:** add `public/CNAME` with the bare hostname, configure DNS + HTTPS under **Settings → Pages**, and either set the `PUBLIC_SITE_URL` Actions variable or edit `CONFIG.origin`.
 
 ## Project layout
 
 ```text
-index.html             Single-file SPA (HTML + CSS + vanilla JS)
-404.html               Self-contained Pages 404 page
-robots.txt             Allow all + sitemap pointer
-sitemap.xml            Single-URL sitemap
-LICENSE                MIT
-README.md              This file
-SECURITY.md            Vulnerability reporting + defense-in-depth notes
-.editorconfig          Cross-editor formatting defaults
-.htmlhintrc            HTMLHint rules
-.markdownlint.json     markdownlint-cli2 config
-.gitignore             Secrets / node / OS / editor / cache exclusions
+astro.config.mjs       Astro config (site, base, MDX, sitemap)
 scripts/
-  validate-tree.js     Tree wiring + reachability check (no deps)
-.github/
-  dependabot.yml       Weekly Action version updates
-  workflows/
-    deploy.yml         Validate → GitHub Pages → CalVer release
-    lint.yml           HTMLHint + markdownlint + Lychee
+  validate-tree.js     Tree wiring + reachability check
+src/
+  config.js (in lib/)  Single source of truth for editable knobs
+  data/tree.js         82-node decision tree
+  lib/                 Derived constants + DOM/path helpers (do not edit)
+  client/              Assessment renderer + lazy PDF builder
+  layouts/Base.astro   HTML shell, meta tags, CSP, cache-bust bootstrap
+  components/          Nav, Footer, Disclaimer
+  pages/               index, assessment, profiles, reference, about, 404,
+                       robots.txt, sitemap, manifest, version.json
+  styles/              Tokens, base, components, print
+  content/             MDX explainers keyed to result ids
+public/                Static assets (og-image.svg, optional CNAME)
+.github/               Workflows, dependabot, CODEOWNERS, issue templates
 ```
 
-## Keyboard shortcuts
+## Keyboard shortcuts (assessment)
 
 | Key | Action |
 | --- | --- |
-| `1`–`9` | Pick a numbered choice on a choice screen |
-| `Y` / `N` | Yes / No on question screens (`1` / `2` also work) |
+| `1`–`9`, `A`–`Z` | Pick a numbered / lettered choice |
+| `Y` / `N` (or `1` / `2`) | Yes / No on question screens |
 | `←` or `Backspace` | Go back one step |
 | `R` | Restart |
 | `Tab` / `Enter` / `Space` | Standard focus + activation |
 
-## Extending the tree
+## Security & privacy
 
-Decision logic lives in the `TREE` object inside [`index.html`](index.html).
-Each node is one of: a **question** (yes/no), a **choice** (n-way picker),
-an **info** screen (read-only), or a terminal **result**.
+Static site. No backend, no telemetry, no cookies. Defense-in-depth `<meta>`
+headers (CSP, Referrer-Policy, Permissions-Policy). Report vulnerabilities
+privately — see [`SECURITY.md`](SECURITY.md).
 
-```js
-const TREE = {
-  start_choice: {
-    choice: true,
-    step: { major: 2, label: "Profile" },
-    question: "Which identity profile fits this account best?",
-    choices: [
-      { label: "Privileged admin", value: "admin", target: "q_uses_services", icon: "1" },
-      // ...
-    ]
-  },
-  result_intune_suite: {
-    result: true,
-    badge: "Intune Suite add-on",
-    badgeClass: "badge-premium",
-    title: "Microsoft Intune Suite (or standalone Intune add-on)",
-    sub: "...",
-    bullets: ["...", "..."],
-    docs: [["Doc title", "https://learn.microsoft.com/..."]]
-  }
-};
-```
+## Trademark notice
 
-Workflow:
-
-1. Add the new node(s) to `TREE`.
-2. Re-wire an existing `yes` / `no` / `target` edge to point at your node.
-3. Run `node scripts/validate-tree.js` to confirm every edge resolves and
-   every node is still reachable from `start_tenant`.
-4. Open a PR; lint and validation run automatically.
-
-> **Heads up:** the validator depends on a sentinel comment immediately
-> after the closing `};` of `TREE`. Don't remove it.
-
-## Security
-
-Static informational site. No backend, no application dependencies, no
-telemetry, no cookies, no user data collection. See
-[`SECURITY.md`](SECURITY.md) for the vulnerability-reporting policy and the
-defense-in-depth headers applied (CSP, Referrer-Policy, Permissions-Policy,
-least-privilege workflow permissions, Dependabot).
-
-## Contributing
-
-Issues and pull requests welcome. For PRs that change licensing logic,
-please cite the Microsoft Learn page the rule comes from so reviewers can
-verify it. Feedback from inside the live assessment uses the navbar
-**Report issue** link, which pre-populates a labelled GitHub issue with the
-current node id and step.
+Microsoft, Microsoft 365, Azure, Entra, Defender, Purview, Intune, Teams,
+Copilot, and related product names are trademarks of Microsoft Corporation.
+This site uses those names nominatively to identify the products discussed.
+The four colored accent squares used as a favicon and navbar mark are not the
+Microsoft corporate logo. This project is not affiliated with, sponsored by,
+or endorsed by Microsoft Corporation.
 
 ## Acknowledgements
 
-- UI inspired by the
-  [Microsoft Zero Trust Assessment](https://github.com/microsoft/zerotrustassessment).
-- License cross-references built on top of
-  [m365maps.com](https://m365maps.com/) by Aaron Dinnage.
+- UI patterns inspired by [Microsoft Zero Trust Assessment](https://github.com/microsoft/zerotrustassessment).
+- License cross-references on top of [m365maps.com](https://m365maps.com/) by Aaron Dinnage.
+- Built with [Astro 5](https://astro.build/) and [jsPDF](https://github.com/parallax/jsPDF).
 
 ## License
 
-[MIT](LICENSE) © 2026 Dr. Bill Mcilhargey
+[MIT](LICENSE) © Dr. Bill Mcilhargey

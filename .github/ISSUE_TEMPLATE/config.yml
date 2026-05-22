@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/billmcilhargey/m365-profiles/security/advisories/new
+    about: Please use private vulnerability reporting — do not file a public issue.
+  - name: 💬 Ask a question or discuss
+    url: https://github.com/billmcilhargey/m365-profiles/discussions
+    about: For open-ended questions, ideas, or general feedback.

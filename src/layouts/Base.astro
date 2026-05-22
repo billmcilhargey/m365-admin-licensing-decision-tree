@@ -1,0 +1,176 @@
+---
+import "@styles/tokens.css";
+import "@styles/base.css";
+import "@styles/components.css";
+import "@styles/print.css";
+import Nav from "@components/Nav.astro";
+import Footer from "@components/Footer.astro";
+import Disclaimer from "@components/Disclaimer.astro";
+import { APP_VERSION, BUILD_DATE } from "@lib/version";
+import { BRAND } from "@lib/brand";
+import { HOME_TITLE, STORAGE_KEYS } from "@lib/site";
+import {
+  baseUrl,
+  canonicalUrl,
+  homeUrl as makeHomeUrl,
+  siteOrigin as makeSiteOrigin,
+} from "@lib/paths";
+import { CSP_META, PERMISSIONS_POLICY, REFERRER_POLICY } from "@lib/security";
+import { CONFIG } from "@lib/config.js";
+
+export interface Props {
+  title?: string;
+  description?: string;
+  pageClass?: string;
+  hideDisclaimer?: boolean;
+}
+
+const {
+  title = HOME_TITLE,
+  description = CONFIG.defaultDescription,
+  pageClass = "",
+  hideDisclaimer = false,
+} = Astro.props;
+
+const baseTrim = baseUrl();
+const canonical = canonicalUrl(Astro.url.pathname, Astro.site);
+const ogImage = `${baseTrim}/og-image.svg`;
+const versionUrl = `${baseTrim}/version.json`;
+const manifestUrl = `${baseTrim}/manifest.webmanifest`;
+
+const siteOrigin = makeSiteOrigin(Astro.site);
+const homeUrl = makeHomeUrl(Astro.site);
+
+// Favicon derived from CONFIG.colors.squares — retints automatically.
+const [sq1, sq2, sq3, sq4] = BRAND.squares;
+const faviconSvg =
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>` +
+  `<rect x='1' y='1' width='10' height='10' fill='${sq1}'/>` +
+  `<rect x='13' y='1' width='10' height='10' fill='${sq2}'/>` +
+  `<rect x='1' y='13' width='10' height='10' fill='${sq3}'/>` +
+  `<rect x='13' y='13' width='10' height='10' fill='${sq4}'/></svg>`;
+const faviconHref = `data:image/svg+xml,${encodeURIComponent(faviconSvg)}`;
+
+// JSON-LD structured data for search engines and AI crawlers.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${homeUrl}#website`,
+      url: homeUrl,
+      name: BRAND.name,
+      description: BRAND.tagline,
+      inLanguage: CONFIG.language,
+      publisher: { "@id": `${homeUrl}#person` },
+    },
+    {
+      "@type": "Person",
+      "@id": `${homeUrl}#person`,
+      name: BRAND.owner,
+      url: homeUrl,
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: title,
+      description,
+      isPartOf: { "@id": `${homeUrl}#website` },
+      inLanguage: CONFIG.language,
+    },
+  ],
+};
+---
+
+<!doctype html>
+<html lang={CONFIG.language} dir={CONFIG.direction}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={BRAND.owner} />
+    <meta name="theme-color" content={BRAND.blue} />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="app-version" content={APP_VERSION} />
+    <meta name="build-date" content={BUILD_DATE} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <meta http-equiv="Content-Security-Policy" content={CSP_META} />
+    <meta name="referrer" content={REFERRER_POLICY} />
+    <meta http-equiv="Permissions-Policy" content={PERMISSIONS_POLICY} />
+
+    <link rel="icon" type="image/svg+xml" href={faviconHref} />
+    <link rel="sitemap" href={`${baseTrim}/sitemap-index.xml`} />
+    <link rel="manifest" href={manifestUrl} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <script is:inline define:vars={{ themeKey: STORAGE_KEYS.theme }}>
+      (function () {
+        try {
+          var t = localStorage.getItem(themeKey);
+          if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+        } catch (_) {
+          /* ignore */
+        }
+      })();
+    </script>
+
+    <script is:inline define:vars={{ versionUrl, APP_VERSION, knownKey: STORAGE_KEYS.knownVersion }}
+    >
+      (function () {
+        if (!("fetch" in window)) return;
+        try {
+          fetch(versionUrl + "?t=" + Date.now(), { cache: "no-store" })
+            .then(function (r) {
+              return r.ok ? r.json() : null;
+            })
+            .then(function (data) {
+              if (!data || !data.version) return;
+              var seen = null;
+              try {
+                seen = localStorage.getItem(knownKey);
+              } catch (_) {}
+              if (seen && seen !== data.version && data.version !== APP_VERSION) {
+                try {
+                  sessionStorage.clear();
+                } catch (_) {}
+                try {
+                  localStorage.setItem(knownKey, data.version);
+                } catch (_) {}
+                location.reload();
+                return;
+              }
+              try {
+                localStorage.setItem(knownKey, data.version);
+              } catch (_) {}
+            })
+            .catch(function () {
+              /* offline / blocked — ignore */
+            });
+        } catch (_) {
+          /* ignore */
+        }
+      })();
+    </script>
+  </head>
+  <body class={pageClass}>
+    <a href="#main" class="skip-link">Skip to content</a>
+    {!hideDisclaimer && <Disclaimer />}
+    <Nav />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

@@ -8,12 +8,15 @@
 secrets/
 .secrets
 
-# Node / npm (this repo has no package.json; entries are a safety net)
+# Node / npm
 node_modules/
-package-lock.json
 npm-debug.log*
 yarn-error.log
 .pnp.*
+
+# Astro build artifacts
+dist/
+.astro/
 
 # OS / editor noise
 .DS_Store

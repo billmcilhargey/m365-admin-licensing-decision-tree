@@ -1,0 +1,112 @@
+---
+import Base from "@layouts/Base.astro";
+import { pageTitle } from "@lib/site";
+import { withBase } from "@lib/paths";
+import { TREE } from "@lib/tree";
+
+// Pull the profile selector definitions straight from the live tree so
+// these cards stay in sync with the assessment.
+const profileNode = TREE["start_choice"];
+const profileChoices = (profileNode?.choices ?? []).filter((c) => c.target);
+const assessmentHref = withBase("/assessment");
+
+const title = pageTitle("Profiles");
+const description =
+  "All eight Microsoft 365 identity profiles supported by the decision tree, with short descriptions and links into the assessment.";
+---
+
+<Base title={title} description={description}>
+  <section class="section">
+    <div class="container">
+      <header class="page-header">
+        <p class="eyebrow">Identity profiles</p>
+        <h1>Eight profiles, one tree</h1>
+        <p class="lede">
+          The decision tree starts by asking which Microsoft 365 identity profile fits the account.
+          Below are all the profiles it supports — each links straight into the assessment for that
+          path.
+        </p>
+      </header>
+
+      <div class="grid grid--2">
+        {
+          profileChoices.map((c) => (
+            <a class="card card--interactive profile-row" href={assessmentHref}>
+              <div class="profile-row__icon" aria-hidden="true">
+                {c.icon}
+              </div>
+              <div class="profile-row__body">
+                <h3>{c.label}</h3>
+                {c.sublabel && <p>{c.sublabel}</p>}
+                <span class="profile-row__link">Run the tree for this profile →</span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .page-header {
+    max-width: 720px;
+    margin: 0 0 2.5rem;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    color: var(--ms-blue);
+    font-weight: 700;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    margin: 0 0 0.25rem;
+  }
+  .lede {
+    color: var(--color-text-soft);
+    font-size: var(--fs-md);
+    margin-top: 0.5rem;
+  }
+
+  .profile-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    color: var(--color-text);
+  }
+  .profile-row:hover {
+    text-decoration: none;
+  }
+  .profile-row__icon {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--ms-blue);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--fs-md);
+  }
+  .profile-row__body {
+    min-width: 0;
+  }
+  .profile-row h3 {
+    margin: 0 0 0.35rem;
+    font-size: var(--fs-lg);
+  }
+  .profile-row p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+  }
+  .profile-row__link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    color: var(--ms-blue);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+  }
+</style>
