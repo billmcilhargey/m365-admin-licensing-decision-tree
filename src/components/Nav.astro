@@ -158,7 +158,10 @@ const isActive = (href: string) => {
 <script define:vars={{ themeKey: STORAGE_KEYS.theme }}>
   const btn = document.getElementById("theme-toggle");
   btn?.addEventListener("click", () => {
-    const cur = document.documentElement.getAttribute("data-theme");
+    let cur = document.documentElement.getAttribute("data-theme");
+    if (cur !== "dark" && cur !== "light") {
+      cur = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     try {

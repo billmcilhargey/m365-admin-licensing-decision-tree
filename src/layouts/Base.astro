@@ -17,12 +17,39 @@ import {
 } from "@lib/paths";
 import { CSP_META, PERMISSIONS_POLICY, REFERRER_POLICY } from "@lib/security";
 import { CONFIG } from "@lib/config.js";
+import { renderIconDataUri } from "@lib/icons";
 
 export interface Props {
   title?: string;
   description?: string;
   pageClass?: string;
   hideDisclaimer?: boolean;
+  /** Overrides og:title / twitter:title. Defaults to `title`. */
+  ogTitle?: string;
+  /** Overrides og:description / twitter:description. Defaults to `description`. */
+  ogDescription?: string;
+  /** og:type — "website" | "article" | etc. Defaults to CONFIG.social.ogType. */
+  ogType?: string;
+  /**
+   * Key into CONFIG.social.ogImages — selects the build-generated card at
+   * /og/<slug>.svg. Falls back to the default /og-image.svg if omitted.
+   */
+  ogImageSlug?: string;
+  /** Override the og:image URL outright (rare — use ogImageSlug instead). */
+  ogImage?: string;
+  /** Alt text for og:image / twitter:image. Defaults to CONFIG.social.ogImageAlt. */
+  ogImageAlt?: string;
+  /**
+   * Robots directive for this page. Defaults to CONFIG.seo.robots
+   * (index, follow, max-image-preview:large, …). Set to "noindex, follow" for
+   * thank-you / 404 / utility pages.
+   */
+  robots?: string;
+  /**
+   * Breadcrumb trail for JSON-LD BreadcrumbList. Pages can override the
+   * auto-derived crumbs (from URL path) with a custom list.
+   */
+  breadcrumbs?: { name: string; href: string }[];
 }
 
 const {
@@ -30,57 +57,120 @@ const {
   description = CONFIG.defaultDescription,
   pageClass = "",
   hideDisclaimer = false,
+  ogTitle,
+  ogDescription,
+  ogType = CONFIG.social.ogType,
+  ogImageSlug,
+  ogImage: ogImageProp,
+  ogImageAlt = CONFIG.social.ogImageAlt,
+  robots = CONFIG.seo.robots,
+  breadcrumbs: breadcrumbsProp,
 } = Astro.props;
 
 const baseTrim = baseUrl();
 const canonical = canonicalUrl(Astro.url.pathname, Astro.site);
-const ogImage = `${baseTrim}/og-image.svg`;
+const ogImageDefault = `${baseTrim}/og-image.svg`;
+const ogImagePath = ogImageProp
+  ? ogImageProp
+  : ogImageSlug
+    ? `${baseTrim}/og/${ogImageSlug}.svg`
+    : ogImageDefault;
+// og:image must be absolute per the Open Graph spec.
+const siteOrigin = makeSiteOrigin(Astro.site);
+const ogImageUrl = ogImagePath.startsWith("http")
+  ? ogImagePath
+  : `${siteOrigin}${ogImagePath}`;
 const versionUrl = `${baseTrim}/version.json`;
 const manifestUrl = `${baseTrim}/manifest.webmanifest`;
 
-const siteOrigin = makeSiteOrigin(Astro.site);
 const homeUrl = makeHomeUrl(Astro.site);
 
-// Favicon derived from CONFIG.colors.squares — retints automatically.
-const [sq1, sq2, sq3, sq4] = BRAND.squares;
-const faviconSvg =
-  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>` +
-  `<rect x='1' y='1' width='10' height='10' fill='${sq1}'/>` +
-  `<rect x='13' y='1' width='10' height='10' fill='${sq2}'/>` +
-  `<rect x='1' y='13' width='10' height='10' fill='${sq3}'/>` +
-  `<rect x='13' y='13' width='10' height='10' fill='${sq4}'/></svg>`;
-const faviconHref = `data:image/svg+xml,${encodeURIComponent(faviconSvg)}`;
+const resolvedOgTitle = ogTitle ?? title;
+const resolvedOgDescription = ogDescription ?? description;
+const ogLocale = CONFIG.social.region
+  ? `${CONFIG.language}_${CONFIG.social.region}`
+  : CONFIG.language;
+
+// Favicon + companion icons are all derived from CONFIG.colors.squares — a
+// single edit retints every surface. The inline data-URI loads zero round-
+// trips; the file-URL variants are advertised for crawlers, PWA installers,
+// iOS home-screen, and Safari pinned tabs.
+const faviconHref = renderIconDataUri({ size: 32, purpose: "any" });
+const maskIconHref = renderIconDataUri({ size: 32, purpose: "monochrome", monoColor: "black" });
+const faviconSvgUrl = `${baseTrim}/favicon.svg`;
+const appleTouchIconUrl = `${baseTrim}/icons/apple-touch-180.svg`;
+
+// Derive a BreadcrumbList from the URL path on every non-home page. Pages
+// can override with a `breadcrumbs` prop.
+function autoBreadcrumbs(pathname: string): { name: string; href: string }[] {
+  const parts = pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  // Skip the leading base-path segment when present (e.g. "m365-profiles").
+  const baseSeg = baseTrim.replace(/^\/+/, "");
+  const relevant = baseSeg && parts[0] === baseSeg ? parts.slice(1) : parts;
+  if (relevant.length === 0) return [];
+  const crumbs: { name: string; href: string }[] = [{ name: "Home", href: homeUrl }];
+  let acc = baseTrim;
+  for (const seg of relevant) {
+    acc += `/${seg}`;
+    const niceName = seg
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    crumbs.push({
+      name: niceName,
+      href: `${siteOrigin}${acc}`,
+    });
+  }
+  return crumbs;
+}
+
+const crumbs = breadcrumbsProp ?? (CONFIG.seo.emitBreadcrumbs ? autoBreadcrumbs(Astro.url.pathname) : []);
 
 // JSON-LD structured data for search engines and AI crawlers.
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": `${homeUrl}#website`,
-      url: homeUrl,
-      name: BRAND.name,
-      description: BRAND.tagline,
-      inLanguage: CONFIG.language,
-      publisher: { "@id": `${homeUrl}#person` },
-    },
-    {
-      "@type": "Person",
-      "@id": `${homeUrl}#person`,
-      name: BRAND.owner,
-      url: homeUrl,
-    },
-    {
-      "@type": "WebPage",
-      "@id": `${canonical}#page`,
-      url: canonical,
-      name: title,
-      description,
-      isPartOf: { "@id": `${homeUrl}#website` },
-      inLanguage: CONFIG.language,
-    },
-  ],
-};
+const jsonLdGraph: Record<string, unknown>[] = [
+  {
+    "@type": "WebSite",
+    "@id": `${homeUrl}#website`,
+    url: homeUrl,
+    name: BRAND.name,
+    description: BRAND.tagline,
+    inLanguage: CONFIG.language,
+    publisher: { "@id": `${homeUrl}#person` },
+  },
+  {
+    "@type": "Person",
+    "@id": `${homeUrl}#person`,
+    name: BRAND.owner,
+    url: homeUrl,
+    ...(CONFIG.social.profiles.length > 0 ? { sameAs: [...CONFIG.social.profiles] } : {}),
+  },
+  {
+    "@type": "WebPage",
+    "@id": `${canonical}#page`,
+    url: canonical,
+    name: title,
+    description,
+    isPartOf: { "@id": `${homeUrl}#website` },
+    inLanguage: CONFIG.language,
+    datePublished: BUILD_DATE,
+    dateModified: BUILD_DATE,
+    primaryImageOfPage: { "@type": "ImageObject", url: ogImageUrl },
+  },
+];
+
+if (crumbs.length > 1) {
+  jsonLdGraph.push({
+    "@type": "BreadcrumbList",
+    "@id": `${canonical}#breadcrumbs`,
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      item: c.href,
+    })),
+  });
+}
+
+const jsonLd = { "@context": "https://schema.org", "@graph": jsonLdGraph };
 ---
 
 <!doctype html>
@@ -91,25 +181,71 @@ const jsonLd = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="author" content={BRAND.owner} />
-    <meta name="theme-color" content={BRAND.blue} />
+    <meta name="robots" content={robots} />
+    <meta name="googlebot" content={robots} />
+    <meta name="format-detection" content="telephone=no, address=no, email=no" />
+    <meta name="theme-color" content={BRAND.blue} media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content={CONFIG.seo.themeColorDark} media="(prefers-color-scheme: dark)" />
     <meta name="color-scheme" content="light dark" />
     <meta name="generator" content={Astro.generator} />
     <meta name="app-version" content={APP_VERSION} />
     <meta name="build-date" content={BUILD_DATE} />
-    <link rel="canonical" href={canonical} />
 
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <!-- Apple / Microsoft PWA hints (iOS Safari ignores most of the web manifest). -->
+    <meta name="application-name" content={BRAND.name} />
+    <meta name="apple-mobile-web-app-title" content={BRAND.name} />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content={CONFIG.seo.appleStatusBarStyle} />
+    <meta name="msapplication-TileColor" content={BRAND.blue} />
+    <meta name="msapplication-config" content="none" />
+
+    <link rel="canonical" href={canonical} />
+    {CONFIG.seo.emitHreflang && (
+      <>
+        <link rel="alternate" hreflang={CONFIG.language} href={canonical} />
+        <link rel="alternate" hreflang="x-default" href={canonical} />
+      </>
+    )}
+    {CONFIG.social.profiles.map((url) => (
+      <link rel="me" href={url} />
+    ))}
+
+    <meta property="og:title" content={resolvedOgTitle} />
+    <meta property="og:description" content={resolvedOgDescription} />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={ogImage} />
+    <meta property="og:site_name" content={BRAND.name} />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:width" content={String(CONFIG.social.ogImageWidth)} />
+    <meta property="og:image:height" content={String(CONFIG.social.ogImageHeight)} />
+    <meta property="og:image:alt" content={ogImageAlt} />
+
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={resolvedOgTitle} />
+    <meta name="twitter:description" content={resolvedOgDescription} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
+    {CONFIG.social.twitterSite && (
+      <meta name="twitter:site" content={CONFIG.social.twitterSite} />
+    )}
+    {CONFIG.social.twitterCreator && (
+      <meta name="twitter:creator" content={CONFIG.social.twitterCreator} />
+    )}
+    {CONFIG.social.fbAppId && (
+      <meta property="fb:app_id" content={CONFIG.social.fbAppId} />
+    )}
 
     <meta http-equiv="Content-Security-Policy" content={CSP_META} />
     <meta name="referrer" content={REFERRER_POLICY} />
     <meta http-equiv="Permissions-Policy" content={PERMISSIONS_POLICY} />
 
     <link rel="icon" type="image/svg+xml" href={faviconHref} />
+    <link rel="icon" type="image/svg+xml" sizes="any" href={faviconSvgUrl} />
+    <link rel="apple-touch-icon" sizes="180x180" href={appleTouchIconUrl} />
+    <link rel="mask-icon" href={maskIconHref} color={BRAND.blue} />
     <link rel="sitemap" href={`${baseTrim}/sitemap-index.xml`} />
     <link rel="manifest" href={manifestUrl} />
 
@@ -117,12 +253,19 @@ const jsonLd = {
 
     <script is:inline define:vars={{ themeKey: STORAGE_KEYS.theme }}>
       (function () {
+        var t = null;
         try {
-          var t = localStorage.getItem(themeKey);
-          if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+          t = localStorage.getItem(themeKey);
         } catch (_) {
           /* ignore */
         }
+        if (t !== "dark" && t !== "light") {
+          t =
+            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        }
+        document.documentElement.setAttribute("data-theme", t);
       })();
     </script>
 

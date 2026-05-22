@@ -2,20 +2,60 @@
 import Base from "@layouts/Base.astro";
 import { pageTitle } from "@lib/site";
 import { withBase } from "@lib/paths";
-import { TREE } from "@lib/tree";
+import {
+  TREE,
+  PROFILES,
+  OUTCOMES,
+  buildProfileOutcomeMatrix,
+  type Profile,
+} from "@lib/tree";
 
-// Pull the profile selector definitions straight from the live tree so
-// these cards stay in sync with the assessment.
-const profileNode = TREE["start_choice"];
-const profileChoices = (profileNode?.choices ?? []).filter((c) => c.target);
 const assessmentHref = withBase("/assessment");
+const referenceHref = withBase("/reference");
+
+// `start_choice` includes a warning-toned "anti-profile" (primary account that
+// also holds admin roles) that leads to a single warning result. Keep it on
+// the card grid so the warning stays visible, but skip it in the matrix so the
+// matrix conveys recommendation coverage, not anti-patterns.
+const matrixProfiles: Profile[] = PROFILES.filter((p) => p.tone !== "warning");
+const matrix = buildProfileOutcomeMatrix();
+
+// For each profile, pick its top-N most prominent outcomes (most reachable
+// results in that bucket) to show as chips on the card.
+const chipsByProfile = new Map<
+  string,
+  { outcome: (typeof OUTCOMES)[number]; count: number; topResultId: string }[]
+>();
+for (const profile of PROFILES) {
+  const row = matrix.get(profile.key);
+  if (!row) {
+    chipsByProfile.set(profile.key, []);
+    continue;
+  }
+  const chips = OUTCOMES.map((o) => {
+    const ids = row.get(o.key) ?? [];
+    return { outcome: o, count: ids.length, topResultId: ids[0] ?? "" };
+  })
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
+  chipsByProfile.set(profile.key, chips);
+}
+
+function refLink(resultId: string): string {
+  return `${referenceHref}#${resultId}`;
+}
+
+function resultTitle(id: string): string {
+  return TREE[id]?.title ?? TREE[id]?.badge ?? id;
+}
 
 const title = pageTitle("Profiles");
 const description =
-  "All eight Microsoft 365 identity profiles supported by the decision tree, with short descriptions and links into the assessment.";
+  "Browse all Microsoft 365 identity profiles supported by the decision tree, with a profile × capability map showing which premium add-ons each profile can land on.";
 ---
 
-<Base title={title} description={description}>
+<Base title={title} description={description} ogImageSlug="profiles">
   <section class="section">
     <div class="container">
       <header class="page-header">
@@ -23,27 +63,150 @@ const description =
         <h1>Eight profiles, one tree</h1>
         <p class="lede">
           The decision tree starts by asking which Microsoft 365 identity profile fits the account.
-          Below are all the profiles it supports — each links straight into the assessment for that
-          path.
+          Below is a map of how those profiles connect to the premium capabilities they can land
+          on, plus jump-in links into the assessment.
         </p>
       </header>
 
-      <div class="grid grid--2">
-        {
-          profileChoices.map((c) => (
-            <a class="card card--interactive profile-row" href={assessmentHref}>
-              <div class="profile-row__icon" aria-hidden="true">
-                {c.icon}
-              </div>
-              <div class="profile-row__body">
-                <h3>{c.label}</h3>
-                {c.sublabel && <p>{c.sublabel}</p>}
-                <span class="profile-row__link">Run the tree for this profile →</span>
-              </div>
-            </a>
-          ))
-        }
-      </div>
+      <!-- Profile × Outcome matrix -->
+      <section class="map" aria-labelledby="map-heading">
+        <div class="map__head">
+          <h2 id="map-heading">Profile × capability map</h2>
+          <p>
+            Each cell shows whether the profile's decision path can land on that premium
+            capability. Click a dot to jump to that recommendation in the
+            <a href={referenceHref}>reference catalog</a>.
+          </p>
+        </div>
+
+        <div class="map__scroll">
+          <table class="matrix" aria-describedby="map-heading">
+            <thead>
+              <tr>
+                <th scope="col" class="matrix__corner">Profile</th>
+                {
+                  OUTCOMES.map((o) => (
+                    <th scope="col" class="matrix__col" title={o.desc}>
+                      <span class="matrix__col-short">{o.short}</span>
+                      <span class="matrix__col-full">{o.label}</span>
+                    </th>
+                  ))
+                }
+                <th
+                  scope="col"
+                  class="matrix__col matrix__col--count"
+                  title="Total result nodes reachable from this profile's entry point in the assessment."
+                >
+                  <span class="matrix__col-short">Paths</span>
+                  <span class="matrix__col-full">Result paths</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                matrixProfiles.map((profile) => {
+                  const row = matrix.get(profile.key);
+                  return (
+                    <tr>
+                      <th scope="row" class="matrix__row">
+                        <a class="matrix__row-link" href={assessmentHref}>
+                          <span class="matrix__row-icon" aria-hidden="true">
+                            {profile.icon}
+                          </span>
+                          <span class="matrix__row-label">{profile.label}</span>
+                        </a>
+                      </th>
+                      {OUTCOMES.map((o) => {
+                        const ids = row?.get(o.key) ?? [];
+                        const top = ids[0];
+                        const tip = ids.length
+                          ? `${profile.label} → ${o.label} (${ids.length} result${ids.length === 1 ? "" : "s"}): ${ids.map(resultTitle).join("; ")}`
+                          : `${profile.label} does not land on ${o.label}`;
+                        return (
+                          <td class={`matrix__cell ${ids.length ? "is-on" : "is-off"}`}>
+                            {ids.length ? (
+                              <a class="dot" href={refLink(top!)} title={tip} aria-label={tip}>
+                                <span aria-hidden="true">●</span>
+                                {ids.length > 1 && <sup class="dot__count">{ids.length}</sup>}
+                              </a>
+                            ) : (
+                              <span class="dot dot--off" aria-label={tip} title={tip}>
+                                ·
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td class="matrix__cell matrix__cell--count">{profile.results.length}</td>
+                    </tr>
+                  );
+                })
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <p class="matrix__legend">
+          <span class="dot" aria-hidden="true">●</span> reachable
+          <span class="dot dot--off" aria-hidden="true">·</span> not on this profile's path
+          <span class="matrix__legend-sep" aria-hidden="true">·</span>
+          Hover a column header for the full capability name; hover a cell for the matching
+          recommendation(s).
+        </p>
+      </section>
+
+      <!-- Profile cards (kept) — now with outcome chips -->
+      <section class="profiles" aria-labelledby="cards-heading">
+        <h2 id="cards-heading">Pick a profile to start the tree</h2>
+        <div class="grid grid--2">
+          {
+            PROFILES.map((profile) => {
+              const chips = chipsByProfile.get(profile.key) ?? [];
+              const warn = profile.tone === "warning";
+              return (
+                <article class={`card profile-row ${warn ? "profile-row--warn" : ""}`}>
+                  <div class="profile-row__icon" aria-hidden="true">
+                    {profile.icon}
+                  </div>
+                  <div class="profile-row__body">
+                    <h3>{profile.label}</h3>
+                    {profile.sublabel && <p>{profile.sublabel}</p>}
+                    {chips.length > 0 ? (
+                      <ul
+                        class="chip-row"
+                        aria-label={`Typical recommendations for ${profile.label}`}
+                      >
+                        {chips.map((c) => (
+                          <li>
+                            <a
+                              class="chip"
+                              href={refLink(c.topResultId)}
+                              title={`Jump to ${resultTitle(c.topResultId)} in the reference catalog`}
+                            >
+                              {c.outcome.short}
+                              {c.count > 1 && <span class="chip__count"> ×{c.count}</span>}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      !warn &&
+                      profile.results.length > 0 && (
+                        <p class="chip-empty">Baseline SKU recommendation only — no premium add-ons on this path.</p>
+                      )
+                    )}
+                    <div class="profile-row__cta">
+                      <a class="profile-row__link" href={assessmentHref}>
+                        Run the tree for this profile →
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          }
+        </div>
+      </section>
     </div>
   </section>
 </Base>
@@ -67,14 +230,194 @@ const description =
     margin-top: 0.5rem;
   }
 
+  /* -------- Map (matrix) -------- */
+  .map {
+    margin-bottom: 3.5rem;
+  }
+  .map__head h2 {
+    margin: 0 0 0.35rem;
+  }
+  .map__head p {
+    margin: 0 0 1.25rem;
+    color: var(--color-text-soft);
+    font-size: var(--fs-sm);
+  }
+  .map__scroll {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-card);
+  }
+
+  .matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+  }
+  .matrix th,
+  .matrix td {
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .matrix tbody tr:last-child th,
+  .matrix tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .matrix tbody tr:hover {
+    background: var(--ms-blue-lighter);
+  }
+  :root[data-theme="dark"] .matrix tbody tr:hover {
+    background: #1a2740;
+  }
+
+  .matrix__corner {
+    text-align: left;
+    background: var(--color-bg-tint);
+    font-weight: 700;
+    color: var(--color-text);
+    padding-left: 1rem;
+    min-width: 220px;
+  }
+  .matrix__col {
+    background: var(--color-bg-tint);
+    color: var(--color-text);
+    font-weight: 600;
+    vertical-align: bottom;
+    min-width: 84px;
+  }
+  .matrix__col-short {
+    display: none;
+    font-size: var(--fs-xs);
+  }
+  .matrix__col-full {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    line-height: 1.2;
+  }
+  .matrix__col--count {
+    min-width: 60px;
+  }
+
+  .matrix__row {
+    text-align: left;
+    background: var(--color-bg);
+    padding-left: 1rem;
+    font-weight: 500;
+  }
+  .matrix__row-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .matrix__row-link:hover {
+    color: var(--ms-blue);
+    text-decoration: none;
+  }
+  .matrix__row-icon {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    background: var(--ms-blue);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+  }
+  .matrix__row-label {
+    font-size: var(--fs-sm);
+  }
+
+  .matrix__cell {
+    padding: 0.45rem 0.4rem;
+  }
+  .matrix__cell--count {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  .dot {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+    text-decoration: none;
+    color: var(--ms-blue);
+    font-size: 1.05rem;
+    line-height: 1;
+    padding: 0.15rem 0.3rem;
+    border-radius: var(--radius-sm);
+  }
+  .dot:hover {
+    background: var(--ms-blue);
+    color: #fff;
+    text-decoration: none;
+  }
+  .dot--off {
+    color: var(--color-border-strong);
+    cursor: default;
+  }
+  .dot--off:hover {
+    background: transparent;
+    color: var(--color-border-strong);
+  }
+  .dot__count {
+    font-size: 0.62rem;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    margin-left: 1px;
+  }
+  .dot:hover .dot__count {
+    color: #fff;
+  }
+
+  .matrix__legend {
+    margin: 0.85rem 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    align-items: center;
+  }
+  .matrix__legend .dot {
+    padding: 0 0.2rem;
+  }
+  .matrix__legend-sep {
+    color: var(--color-border-strong);
+  }
+
+  /* On narrow screens, swap full labels for short codes. */
+  @media (max-width: 900px) {
+    .matrix__col-full {
+      display: none;
+    }
+    .matrix__col-short {
+      display: inline-block;
+    }
+    .matrix__corner {
+      min-width: 160px;
+    }
+  }
+
+  /* -------- Profile cards (with chips) -------- */
+  .profiles h2 {
+    margin: 0 0 1.25rem;
+  }
   .profile-row {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
     color: var(--color-text);
   }
-  .profile-row:hover {
-    text-decoration: none;
+  .profile-row--warn {
+    border-left: 4px solid var(--color-warning);
   }
   .profile-row__icon {
     flex: 0 0 auto;
@@ -89,8 +432,12 @@ const description =
     font-weight: 700;
     font-size: var(--fs-md);
   }
+  .profile-row--warn .profile-row__icon {
+    background: var(--color-warning);
+  }
   .profile-row__body {
     min-width: 0;
+    flex: 1;
   }
   .profile-row h3 {
     margin: 0 0 0.35rem;
@@ -102,11 +449,67 @@ const description =
     font-size: var(--fs-sm);
     line-height: 1.5;
   }
+  .profile-row__cta {
+    margin-top: 0.85rem;
+  }
   .profile-row__link {
-    display: inline-block;
-    margin-top: 0.75rem;
     color: var(--ms-blue);
     font-weight: 600;
     font-size: var(--fs-sm);
+  }
+
+  .chip-row {
+    list-style: none;
+    padding: 0;
+    margin: 0.85rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--ms-blue-lighter);
+    color: var(--ms-blue-darker);
+    border: 1px solid #b8daff;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1.4;
+  }
+  .chip:hover {
+    background: var(--ms-blue);
+    color: #fff;
+    border-color: var(--ms-blue);
+    text-decoration: none;
+  }
+  .chip__count {
+    opacity: 0.75;
+    font-weight: 500;
+  }
+
+  .chip-empty {
+    margin: 0.85rem 0 0;
+    font-size: var(--fs-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  :root[data-theme="dark"] .chip {
+    background: #173a63;
+    color: #8ecbff;
+    border-color: #2a558a;
+  }
+  :root[data-theme="dark"] .chip:hover {
+    background: var(--ms-blue);
+    color: #fff;
+    border-color: var(--ms-blue);
+  }
+  :root[data-theme="dark"] .matrix__corner,
+  :root[data-theme="dark"] .matrix__col {
+    background: var(--color-bg-alt);
   }
 </style>

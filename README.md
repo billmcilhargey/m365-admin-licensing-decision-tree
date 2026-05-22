@@ -102,6 +102,70 @@ Delivered as `<meta>` tags from [`src/layouts/Base.astro`](src/layouts/Base.astr
 | `security.referrerPolicy` | `strict-origin-when-cross-origin` | `<meta name="referrer">`. |
 | `security.permissionsPolicy` | denies camera / mic / geolocation / FLoC | `<meta http-equiv="Permissions-Policy">`. |
 
+### Social / Open Graph metadata
+
+The full "essential meta tags for social media" set ([css-tricks.com][otmeta])
+is emitted from [`Base.astro`](src/layouts/Base.astro) on every page —
+`og:title`, `og:description`, `og:type`, `og:url`, `og:site_name`, `og:locale`,
+`og:image` + `width` + `height` + `alt`, `twitter:card`, `twitter:title`,
+`twitter:description`, `twitter:image`, `twitter:image:alt`, and optional
+`twitter:site` / `twitter:creator` / `fb:app_id`. Per-page overrides are
+passed via the `<Base>` props (`ogTitle`, `ogDescription`, `ogType`,
+`ogImageSlug`, `ogImageAlt`).
+
+OG images themselves are also dynamic — there are no binary card PNGs in
+`public/`. The card SVG is generated at build time by
+[`src/lib/og.ts`](src/lib/og.ts) from `CONFIG.colors` + a per-page text spec,
+and served by two routes:
+
+- `/og-image.svg` — default card, also referenced by the web manifest.
+- `/og/<slug>.svg` — one per entry in `CONFIG.social.ogImages`, selected per
+  page via `<Base ogImageSlug="home" />`. Forks get recoloured share cards
+  for free.
+
+[otmeta]: https://css-tricks.com/essential-meta-tags-social-media/
+
+| Key | Default | What it controls |
+|---|---|---|
+| `social.region` | `US` | Combined with `language` → `og:locale` (e.g. `en_US`). |
+| `social.ogType` | `website` | Default `og:type`. Pages can override per call. |
+| `social.ogImageWidth` / `Height` | `1200` / `630` | Dimensions baked into the SVG card and emitted as `og:image:width/height`. |
+| `social.ogImageAlt` | *(see file)* | Default `og:image:alt` / `twitter:image:alt`. |
+| `social.twitterSite` | `""` | If set (e.g. `@handle`), emits `<meta name="twitter:site">`. |
+| `social.twitterCreator` | `""` | If set, emits `<meta name="twitter:creator">`. |
+| `social.fbAppId` | `""` | If set, emits `<meta property="fb:app_id">` for Facebook Domain Insights. |
+| `social.profiles` | `[]` | Owner profile URLs → `<link rel="me">` (Mastodon / IndieWeb) + JSON-LD `Person.sameAs` (Knowledge Graph). |
+| `social.ogImages` | 6 entries | `{ eyebrow, headline, subline }` per page → one SVG card each at `/og/<key>.svg`. |
+
+### SEO directives
+
+| Key | Default | What it controls |
+|---|---|---|
+| `seo.robots` | `index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1` | `<meta name="robots">` + `<meta name="googlebot">`. Per-page override via `<Base robots="noindex, follow" />` (already set on `/404`). |
+| `seo.emitHreflang` | `true` | Emit self-referential `<link rel="alternate" hreflang>` + `x-default`. |
+| `seo.emitBreadcrumbs` | `true` | Auto-derive a JSON-LD `BreadcrumbList` from the URL path on non-home pages. Pages can override with a `breadcrumbs` prop. |
+| `seo.appleStatusBarStyle` | `default` | iOS PWA status-bar style: `default \| black \| black-translucent`. |
+| `seo.themeColorDark` | `#003e72` | Dark-mode `<meta name="theme-color">`. Light variant uses `colors.blue`. |
+
+Other always-on additions: `format-detection` (disables iOS auto-linking of phone numbers / addresses / emails), `application-name`, `apple-mobile-web-app-title|capable|status-bar-style`, `mobile-web-app-capable`, `msapplication-TileColor`, `apple-touch-icon` (auto-derived from `CONFIG.colors.squares`), and `mask-icon` for Safari pinned tabs. JSON-LD now includes `datePublished` / `dateModified` and `primaryImageOfPage`. A dynamic [`/llms.txt`](src/pages/llms.txt.ts) describes the site to LLM crawlers per the [llmstxt.org](https://llmstxt.org) convention.
+
+### Favicons & PWA icons
+
+All icons are SVG, generated at build time by [`src/lib/icons.ts`](src/lib/icons.ts) from `CONFIG.colors.squares` — there are no PNG / ICO binaries to keep in sync. Three purposes (W3C manifest spec) are rendered:
+
+| Purpose | Used for | How it renders |
+|---|---|---|
+| `any` | Browser tab, app list, home screen | Full four-color mark, edge-to-edge. |
+| `maskable` | Android adaptive icons | Same mark at 60% scale inside a brand-blue safe-zone bleed. |
+| `monochrome` | Notification badges, watch faces, Safari pinned tabs | Single-color silhouette (defaults to brand blue). |
+
+Endpoints (all built statically — no runtime calls):
+
+- `/favicon.svg` — primary favicon.
+- `/icons/<slug>.svg` — one per entry in `ICON_SET`: `favicon-32`, `favicon-192`, `favicon-512`, `apple-touch-180`, `maskable-192`, `maskable-512`, `monochrome-512`.
+
+The web manifest advertises all five PWA sizes (`any` × 2 + `maskable` × 2 + `monochrome` × 1) plus two **app shortcuts** (Start assessment, Reference catalog) so installed PWAs get a long-press menu. `Base.astro` emits an inline data-URI favicon (zero round-trips) plus file-URL `rel="icon"`, `apple-touch-icon`, and `mask-icon` links for crawlers, iOS, and Safari.
+
 ### External links and CI overrides
 
 - `CONFIG.externalSources` — array of `{ href, label }` rendered in the footer.
@@ -154,10 +218,12 @@ src/
   layouts/Base.astro   HTML shell, meta tags, CSP, cache-bust bootstrap
   components/          Nav, Footer, Disclaimer
   pages/               index, assessment, profiles, reference, about, 404,
-                       robots.txt, sitemap, manifest, version.json
+                       robots.txt, sitemap, manifest, version.json,
+                       og-image.svg, og/[slug].svg, llms.txt,
+                       favicon.svg, icons/[slug].svg
   styles/              Tokens, base, components, print
   content/             MDX explainers keyed to result ids
-public/                Static assets (og-image.svg, optional CNAME)
+public/                Optional static assets (CNAME for custom domains)
 .github/               Workflows, dependabot, CODEOWNERS, issue templates
 ```
 
