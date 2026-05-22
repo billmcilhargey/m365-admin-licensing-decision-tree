@@ -626,7 +626,7 @@ export const TREE = {
     help:
       "Microsoft licenses the Defender Suite per protected mailbox, device, and identity. Opening security.microsoft.com to triage incidents, run advanced hunting, manage alerts, or operate Microsoft Sentinel under a Security Reader / Security Operator / Security Admin / Global Reader role does not by itself require a per-user Defender licence on the admin. The licence is required for each user, mailbox, or device that is actually receiving protection from the workload.",
     paragraphs: [
-      "The Microsoft Defender Suite is an umbrella over four component workloads — Defender for Office 365, Defender for Endpoint, Defender for Identity, and Defender for Cloud Apps — plus the Microsoft Defender XDR correlation and incident layer. Each component has its own licensing dimension (per-mailbox, per-user, per-device, or tenant-level) and its own Service Description in Microsoft's Product Terms. The bundles that include all of them are Microsoft 365 E5, Microsoft 365 E5 Security, the Microsoft Defender Suite add-on (sometimes listed as the 'Defender for Customer-Year Engagement' bundle), Office 365 E5 + EMS E5 (overlapping coverage), or the new Microsoft 365 E7 (Frontier Suite, GA May 1 2026) which bundles E5 + Copilot + Entra Suite + Agent 365.",
+      "The Microsoft Defender Suite is an umbrella over four component workloads — Defender for Office 365, Defender for Endpoint, Defender for Identity, and Defender for Cloud Apps — plus the Microsoft Defender XDR correlation and incident layer. Each component has its own licensing dimension (per-mailbox, per-user, per-device, or tenant-level) and its own Service Description in Microsoft's Product Terms. The bundles that include all of them are Microsoft 365 E5, Microsoft 365 E5 Security, the Microsoft Defender Suite add-on (sometimes listed as the 'Defender for Customer-Year Engagement' bundle), Office 365 E5 + EMS E5 (overlapping coverage), or Microsoft 365 E7 (Frontier Suite, generally available since May 1, 2026) which bundles E5 + Copilot + Entra Suite + Agent 365.",
       "Important: portal operation and protection are licensed separately. Microsoft's Defender XDR licensing documentation is explicit that role-based access (Security Reader, Security Operator, Security Administrator, Global Reader, Compliance Administrator) controls what the admin can see and do in the portal, while per-mailbox / per-user / per-device assignment controls what is actually being protected. A SOC analyst with Security Operator role can investigate alerts for 50,000 mailboxes without holding a Defender for Office 365 P2 licence themselves, as long as their own mailbox is not also being protected.",
       "If the admin runs a normal day-job mailbox (Exchange Online), uses a managed Windows / macOS / iOS / Android device that is enrolled in Defender for Endpoint, and signs in with an Entra-synced identity that Defender for Identity monitors, then they are personally a protected user on top of being a portal operator — and Microsoft requires every protected user to be licensed. The mini-cards below walk through each component so you can answer Yes if at least one applies to the admin themselves.",
       "Microsoft Sentinel is intentionally out of the mini-card grid. Sentinel is licensed by Log Analytics workspace data-ingestion (per-GB or Commitment Tier), not per user. Operating Sentinel as a SOC analyst — even Sentinel-only customers — never creates a per-user Defender Suite licence requirement on the admin. It is referenced in the footnotes for completeness."
@@ -923,7 +923,7 @@ export const TREE = {
   q_copilot_e7_choice: {
     step: { major: 4, sub: 1, subTotal: 5, label: "Premium service features" },
     question: "Will this user ALSO need Microsoft Entra Suite (Internet Access + Private Access + Verified ID) AND Agent 365 governance — all bundled in a single per-user SKU?",
-    help: "Microsoft 365 E7 (Frontier Suite, GA May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license. The Copilot add-on layered on E3/E5 is cheaper when you only need Copilot.",
+    help: "Microsoft 365 E7 (Frontier Suite, generally available since May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license. The Copilot add-on layered on E3/E5 is cheaper when you only need Copilot.",
     rationale: {
       why: "E7 is meaningfully cheaper than stacking E5 + Copilot + Entra Suite + Agent 365 individually when all four are needed. The Copilot add-on alone is the right answer when Entra Suite and Agent 365 aren't required.",
       yes: "buy M365 E7 — one bundled license covers all four.",
@@ -1082,7 +1082,7 @@ export const TREE = {
       },
       {
         name: "Microsoft 365 E7 (Frontier Suite)",
-        sku: "M365 E7 — GA May 1, 2026",
+        sku: "M365 E7 — generally available since May 1, 2026",
         scope: "per-user",
         scopeNote: "Per-user license assignment. E7 bundles E5 + Copilot + Entra Suite + Agent 365.",
         inScopeMeans: "The user is assigned 'Microsoft 365 E7' in the Licenses tab. Entra ID P2 is included via the bundled E5 component.",
@@ -1197,7 +1197,7 @@ export const TREE = {
   q_iw_copilot_bundle: {
     step: { major: 2, sub: 2, subTotal: 2, label: "Knowledge worker tier" },
     question: "Does this user ALSO need Microsoft 365 Copilot, Microsoft Entra Suite (Internet Access / Private Access / Verified ID), AND Agent 365 — all bundled in a single per-user SKU?",
-    help: "M365 E7 (GA May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license — typically cheaper than stacking the four add-ons.",
+    help: "M365 E7 (generally available since May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license — typically cheaper than stacking the four add-ons.",
     rationale: {
       why: "E7 was designed as the bundled price point for users who need all four. E5 alone is cheaper when Copilot / Entra Suite / Agent 365 aren't all required.",
       yes: "buy Microsoft 365 E7 — the single bundled SKU.",
@@ -1579,7 +1579,7 @@ export const TREE = {
     title: "Microsoft 365 E7 (Frontier Suite)",
     sub: "Single bundled SKU that includes E5 + Copilot + Entra Suite + Agent 365.",
     license: "Microsoft 365 E7 (Frontier Suite), per user — bundles E5, Copilot, Entra Suite, and Agent 365 in one license",
-    decisionBasis: "You answered Yes to Copilot AND Yes to also needing Entra Suite (Internet/Private Access, Verified ID) and Agent 365 governance. E7 (GA May 1, 2026) bundles all four into one per-user SKU and is typically cheaper than stacking the add-ons individually.",
+    decisionBasis: "You answered Yes to Copilot AND Yes to also needing Entra Suite (Internet/Private Access, Verified ID) and Agent 365 governance. E7 (generally available since May 1, 2026) bundles all four into one per-user SKU and is typically cheaper than stacking the add-ons individually.",
     bullets: [
       "Microsoft 365 E7 includes Microsoft 365 E5 + Microsoft 365 Copilot + Microsoft Entra Suite + Agent 365.",
       "Pricing target is the bundle being meaningfully cheaper than E5 + Copilot + Entra Suite + Agent 365 priced individually — confirm with your Microsoft account team.",
