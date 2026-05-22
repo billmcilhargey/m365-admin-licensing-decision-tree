@@ -7,6 +7,7 @@ import { each, escapeHTML, h, when } from "../lib/dom";
 import type {
   Action,
   DocLink,
+  FrontlineNodeMeta,
   ProductScopeItem,
   Rationale,
   StepMeta,
@@ -14,6 +15,18 @@ import type {
   Tree,
   TreeNode,
 } from "../lib/tree";
+import {
+  ADDONS,
+  BASE_SKUS,
+  EXCHANGE_ONLINE_LIMITS,
+  FRONTLINE_PRICING_LAST_VERIFIED,
+  MICROSOFT_365_ENTERPRISE_PRICING,
+  MICROSOFT_365_FRONTLINE_PRICING,
+  MICROSOFT_365_LICENSING_DOCS,
+  MODERN_WORK_PLAN_COMPARISON,
+  formatPrice,
+  type PriceItem,
+} from "../lib/frontline-pricing";
 
 type Config = { tree: Tree; startId: string; totalSteps: number };
 type HistoryEntry = { id: string; label?: string };
@@ -23,6 +36,39 @@ type State = {
   tenant?: string;
   profile?: string;
   version: string;
+};
+
+/** Derived state of the frontline wizard, recomputed from `state.history`. */
+type FrontlineWizardState = {
+  /** Whether the user passed the eligibility gate (always true if they reached
+   *  the computed result — ineligible users are routed to the IW tree). */
+  eligible: boolean;
+  /** Set when the mailbox question was answered Yes. Drives F1 vs F3 base. */
+  needsMailbox: boolean;
+  /** Soft advisory flags (e.g. considerE5). Surfaced in reasoning. */
+  softFlags: Set<string>;
+  /** Microsoft-approved add-ons selected, keyed for dedupe. */
+  addons: Map<string, PriceItem>;
+  /** Hard-fail feature gaps that force an enterprise uplift. */
+  hardFails: Array<{ key: string; reason: string; upgrade: "e3" | "e5" }>;
+};
+
+type FrontlineRecommendation = {
+  baseSku: PriceItem;
+  addons: PriceItem[];
+  monthlyTotal: number;
+  /** Comparison rows (recommended row plus the alternatives). */
+  comparison: Array<{
+    label: string;
+    total: number;
+    delta: string;
+    recommended: boolean;
+    note?: string;
+  }>;
+  /** Plain-English bullets explaining why this is the recommendation. */
+  reasoning: string[];
+  /** Hard-fail reasons surfaced when an uplift was forced. */
+  hardFails: string[];
 };
 
 const toneBtn = (t?: Tone) =>
@@ -347,6 +393,10 @@ class Assessment {
       h("h2", { class: "card__title" }, escapeHTML(node.title ?? "")),
       when(node.sub, (s) => h("p", { class: "card__sub" }, escapeHTML(s))),
       each(node.paragraphs, (p) => h("p", null, escapeHTML(p))),
+      // Computed (dynamic) results: inject wizard-derived content above the
+      // static bullets and actions. Currently only the frontline wizard uses
+      // this; new computed results can switch on `node.computed`.
+      node.computed === "frontline" ? this.frontlineComputedHTML() : "",
       node.bullets?.length
         ? h(
             "ul",
@@ -733,6 +783,386 @@ class Assessment {
     );
   }
 
+  // ---------- Frontline wizard (computed result) ----------
+
+  /**
+   * Walk the navigation history, find every frontline-tagged question the
+   * user answered, and reduce to a single derived wizard state. Recomputed
+   * on every render so Back navigation automatically un-does its effects.
+   */
+  private computeFrontlineState(): FrontlineWizardState {
+    const state: FrontlineWizardState = {
+      eligible: true,
+      needsMailbox: false,
+      softFlags: new Set(),
+      addons: new Map(),
+      hardFails: [],
+    };
+    for (const entry of this.state.history) {
+      const node = this.cfg.tree[entry.id];
+      const meta = node?.frontline as FrontlineNodeMeta | undefined;
+      if (!meta || !entry.label) continue;
+      const branch = entry.label === "Yes" ? meta.yes : entry.label === "No" ? meta.no : undefined;
+      if (!branch) continue;
+      if (branch.flag) {
+        if (branch.flag.key === "needsMailbox") state.needsMailbox = branch.flag.value;
+        if (branch.flag.key === "eligible") state.eligible = branch.flag.value;
+      }
+      if (branch.softFlag) state.softFlags.add(branch.softFlag.key);
+      if (branch.addon) {
+        const item = ADDONS[branch.addon.key];
+        if (item) state.addons.set(item.key, item);
+      }
+      if (branch.hardFail) {
+        if (!state.hardFails.some((h) => h.key === branch.hardFail!.key)) {
+          state.hardFails.push(branch.hardFail);
+        }
+      }
+      if (branch.ineligible) state.eligible = false;
+    }
+    return state;
+  }
+
+  /**
+   * Apply the recommendation logic: pick the cheapest licensing posture that
+   * still closes every requirement the user flagged.
+   *
+   * - Hard fails to E5 take precedence over hard fails to E3.
+   * - A hard fail to E3 promotes the base SKU to E3 (add-ons stripped — they
+   *   are already covered by E or no longer relevant).
+   * - Otherwise base = F3 if mailbox needed, else F1.
+   * - Add-on totals are computed on top of the F base. If F + add-ons exceeds
+   *   the corresponding E SKU list price (or the considerE5 soft flag fires),
+   *   the recommendation flips to the E SKU and the add-ons are noted as
+   *   "already included in E5 / E3" where applicable.
+   */
+  private recommendFrontline(s: FrontlineWizardState): FrontlineRecommendation {
+    const reasoning: string[] = [];
+    const hardFailReasons = s.hardFails.map((f) => f.reason);
+    const e3 = BASE_SKUS.e3;
+    const e5 = BASE_SKUS.e5;
+    const copilotAddon = s.addons.get("copilot_m365");
+    const purviewAddon = s.addons.get("purview_dlp");
+    const considerE5 = s.softFlags.has("considerE5") || !!purviewAddon;
+
+    // Hard fail to E5 — purview + other E5-only features.
+    const hardE5 = s.hardFails.some((f) => f.upgrade === "e5");
+    const hardE3 = s.hardFails.some((f) => f.upgrade === "e3");
+
+    const fBase = s.needsMailbox ? BASE_SKUS.f3 : BASE_SKUS.f1;
+    const addonList = [...s.addons.values()];
+    const fAddonTotal = addonList.reduce((sum, a) => sum + a.cost, 0);
+    const fTotal = fBase.cost + fAddonTotal;
+
+    // Build all comparison candidates so the UI can show the trade-off.
+    const e3Plus = copilotAddon ? e3.cost + copilotAddon.cost : e3.cost;
+    const e5Plus = copilotAddon ? e5.cost + copilotAddon.cost : e5.cost;
+
+    let baseSku: PriceItem;
+    let finalAddons: PriceItem[];
+    let monthlyTotal: number;
+    let recommendedLabel: string;
+
+    if (hardE5 || (considerE5 && fTotal >= e5.cost)) {
+      baseSku = e5;
+      finalAddons = copilotAddon ? [copilotAddon] : [];
+      monthlyTotal = baseSku.cost + finalAddons.reduce((sum, a) => sum + a.cost, 0);
+      recommendedLabel = copilotAddon ? "Microsoft 365 E5 + Copilot" : "Microsoft 365 E5";
+      if (hardE5) {
+        reasoning.push(
+          "At least one hard-fail feature gap requires Microsoft 365 E5 (Purview E5 / Defender XDR / Entra ID P2 features that have no F-compatible add-on)."
+        );
+      }
+      if (considerE5 && !hardE5) {
+        reasoning.push(
+          `The Purview E5 Compliance add-on (or other E5-tier feature) you flagged makes M365 E5 the better-value posture once cumulative F add-ons reach ${formatPrice(fTotal)} / user / month.`
+        );
+      }
+    } else if (hardE3 || fTotal > e3.cost) {
+      baseSku = e3;
+      finalAddons = copilotAddon ? [copilotAddon] : [];
+      monthlyTotal = baseSku.cost + finalAddons.reduce((sum, a) => sum + a.cost, 0);
+      recommendedLabel = copilotAddon ? "Microsoft 365 E3 + Copilot" : "Microsoft 365 E3";
+      if (hardE3) {
+        reasoning.push(
+          "At least one hard-fail feature gap cannot be closed with any F add-on (desktop apps / >10.9″ mobile / >2 GB OneDrive). E3 closes the gap with the bundled benefit."
+        );
+      } else {
+        reasoning.push(
+          `Cumulative F + add-on cost (${formatPrice(fTotal)}) exceeds the M365 E3 list price (${formatPrice(e3.cost)}). E3 bundles the same benefits and costs less — recommend E3.`
+        );
+      }
+    } else {
+      baseSku = fBase;
+      finalAddons = addonList;
+      monthlyTotal = fTotal;
+      recommendedLabel =
+        addonList.length > 0
+          ? `${fBase.name} + ${addonList.length} add-on${addonList.length === 1 ? "" : "s"}`
+          : fBase.name;
+      if (s.needsMailbox) {
+        reasoning.push("User needs their own Exchange mailbox → F3 is the correct base SKU.");
+      } else {
+        reasoning.push(
+          "User does not need a personal mailbox → F1 is the cheapest legitimate base SKU."
+        );
+      }
+      if (addonList.length > 0) {
+        reasoning.push(
+          `Microsoft-approved add-ons total ${formatPrice(fAddonTotal)} / user / month on top of the ${formatPrice(fBase.cost)} base.`
+        );
+        reasoning.push(
+          `Total of ${formatPrice(monthlyTotal)} is still cheaper than M365 E3 (${formatPrice(e3.cost)}) — F + add-ons wins on value.`
+        );
+      } else {
+        reasoning.push(
+          "No add-ons required — the base F SKU covers every requirement you flagged."
+        );
+      }
+    }
+
+    const comparison: FrontlineRecommendation["comparison"] = [];
+
+    // Recommended row first
+    comparison.push({
+      label: recommendedLabel,
+      total: monthlyTotal,
+      delta: "Recommended",
+      recommended: true,
+      note: "Closes every requirement you flagged at the lowest list price.",
+    });
+
+    // Always include F1 / F3 alternatives so the trade-off is visible.
+    if (baseSku.key !== "f1" && !hardE3 && !hardE5 && !s.needsMailbox) {
+      const f1Total = BASE_SKUS.f1.cost + fAddonTotal;
+      comparison.push({
+        label: `${BASE_SKUS.f1.name} + add-ons`,
+        total: f1Total,
+        delta: this.formatDelta(f1Total, monthlyTotal),
+        recommended: false,
+        note: "F1 alternative if a personal mailbox isn't actually required.",
+      });
+    }
+    if (baseSku.key !== "f3" && !hardE3 && !hardE5) {
+      const f3Total = BASE_SKUS.f3.cost + fAddonTotal;
+      comparison.push({
+        label: `${BASE_SKUS.f3.name} + add-ons`,
+        total: f3Total,
+        delta: this.formatDelta(f3Total, monthlyTotal),
+        recommended: false,
+        note: "F3 alternative — the full-featured frontline tier with mailbox + mobile Office.",
+      });
+    }
+    if (baseSku.key !== "e3") {
+      comparison.push({
+        label: copilotAddon ? "Microsoft 365 E3 + Copilot" : "Microsoft 365 E3",
+        total: e3Plus,
+        delta: this.formatDelta(e3Plus, monthlyTotal),
+        recommended: false,
+        note: "E3 baseline — desktop Office, 100 GB mailbox, 1+ TB OneDrive, archive, full Teams.",
+      });
+    }
+    if (baseSku.key !== "e5") {
+      comparison.push({
+        label: copilotAddon ? "Microsoft 365 E5 + Copilot" : "Microsoft 365 E5",
+        total: e5Plus,
+        delta: this.formatDelta(e5Plus, monthlyTotal),
+        recommended: false,
+        note: "E5 ceiling — adds Defender XDR + Purview E5 + Entra ID P2 + Teams Phone + Power BI Pro.",
+      });
+    }
+
+    return {
+      baseSku,
+      addons: finalAddons,
+      monthlyTotal,
+      comparison,
+      reasoning,
+      hardFails: hardFailReasons,
+    };
+  }
+
+  private formatDelta(candidate: number, recommended: number): string {
+    const diff = candidate - recommended;
+    if (Math.abs(diff) < 0.005) return "Same price";
+    const sign = diff > 0 ? "+" : "−";
+    return `${sign}${formatPrice(Math.abs(diff))} / user / month vs. recommended`;
+  }
+
+  /** Build the dynamic wizard-result HTML injected into the result card. */
+  private frontlineComputedHTML(): string {
+    const wstate = this.computeFrontlineState();
+    const rec = this.recommendFrontline(wstate);
+    const baseRow = h(
+      "tr",
+      { class: "frontline-calc__row frontline-calc__row--base" },
+      h("td", null, escapeHTML(rec.baseSku.name)),
+      h("td", { class: "frontline-calc__cost" }, formatPrice(rec.baseSku.cost)),
+      h("td", null, escapeHTML(rec.baseSku.note ?? ""))
+    );
+    const addonRows = each(rec.addons, (addon) =>
+      h(
+        "tr",
+        { class: "frontline-calc__row" },
+        h(
+          "td",
+          null,
+          h(
+            "a",
+            { href: addon.source.url, target: "_blank", rel: "noopener" },
+            escapeHTML(addon.name)
+          )
+        ),
+        h("td", { class: "frontline-calc__cost" }, `+${formatPrice(addon.cost)}`),
+        h("td", null, escapeHTML(addon.note ?? ""))
+      )
+    );
+    const totalRow = h(
+      "tr",
+      { class: "frontline-calc__row frontline-calc__row--total" },
+      h("td", null, h("strong", null, "Total per user / month (USD)")),
+      h("td", { class: "frontline-calc__cost" }, h("strong", null, formatPrice(rec.monthlyTotal))),
+      h("td", null, "")
+    );
+
+    const comparisonRows = each(rec.comparison, (row) =>
+      h(
+        "tr",
+        { class: `frontline-compare__row${row.recommended ? " frontline-compare__row--rec" : ""}` },
+        h(
+          "td",
+          null,
+          row.recommended ? h("strong", null, escapeHTML(row.label)) : escapeHTML(row.label)
+        ),
+        h("td", { class: "frontline-calc__cost" }, formatPrice(row.total)),
+        h("td", null, escapeHTML(row.delta)),
+        h("td", null, escapeHTML(row.note ?? ""))
+      )
+    );
+
+    const reasoningList = each(rec.reasoning, (r) => h("li", null, escapeHTML(r)));
+    const hardFailList = rec.hardFails.length
+      ? h(
+          "div",
+          { class: "frontline-callout frontline-callout--warn" },
+          h("p", null, h("strong", null, "Frontline ceiling hit on the following requirements:")),
+          h(
+            "ul",
+            null,
+            each(rec.hardFails, (r) => h("li", null, escapeHTML(r)))
+          )
+        )
+      : "";
+
+    return h(
+      "section",
+      { class: "frontline-computed", "data-base-sku": rec.baseSku.key },
+      h(
+        "div",
+        { class: "frontline-callout frontline-callout--ai" },
+        h(
+          "p",
+          null,
+          h("strong", null, "AI-assisted recommendation. "),
+          `Computed from your wizard answers using Microsoft public list prices (last verified ${FRONTLINE_PRICING_LAST_VERIFIED}). Always confirm CSP / EA / partner-channel pricing with your Microsoft account team.`
+        ),
+        h(
+          "p",
+          { class: "frontline-callout__source" },
+          "Canonical sources: ",
+          h(
+            "a",
+            {
+              href: MICROSOFT_365_FRONTLINE_PRICING.url,
+              target: "_blank",
+              rel: "noopener",
+            },
+            "Frontline F1 / F3 pricing"
+          ),
+          " · ",
+          h(
+            "a",
+            {
+              href: MICROSOFT_365_ENTERPRISE_PRICING.url,
+              target: "_blank",
+              rel: "noopener",
+            },
+            "Enterprise E3 / E5 pricing"
+          ),
+          " · ",
+          h(
+            "a",
+            {
+              href: MODERN_WORK_PLAN_COMPARISON.url,
+              target: "_blank",
+              rel: "noopener",
+            },
+            "Modern Work plan comparison PDF"
+          ),
+          " · ",
+          h(
+            "a",
+            {
+              href: EXCHANGE_ONLINE_LIMITS.url,
+              target: "_blank",
+              rel: "noopener",
+            },
+            "Exchange Online service limits"
+          ),
+          " · ",
+          h(
+            "a",
+            {
+              href: MICROSOFT_365_LICENSING_DOCS.url,
+              target: "_blank",
+              rel: "noopener",
+            },
+            "M365 Licensing Resources hub"
+          ),
+          "."
+        )
+      ),
+      hardFailList,
+      h("h3", { class: "frontline-calc__heading" }, "Cost breakdown"),
+      h(
+        "table",
+        { class: "frontline-calc" },
+        h(
+          "thead",
+          null,
+          h(
+            "tr",
+            null,
+            h("th", null, "Line item"),
+            h("th", { class: "frontline-calc__cost" }, "USD / user / month"),
+            h("th", null, "Notes")
+          )
+        ),
+        h("tbody", null, baseRow, addonRows, totalRow)
+      ),
+      h("h3", { class: "frontline-calc__heading" }, "Compare against alternatives"),
+      h(
+        "table",
+        { class: "frontline-compare" },
+        h(
+          "thead",
+          null,
+          h(
+            "tr",
+            null,
+            h("th", null, "Option"),
+            h("th", { class: "frontline-calc__cost" }, "USD / user / month"),
+            h("th", null, "Delta"),
+            h("th", null, "Notes")
+          )
+        ),
+        h("tbody", null, comparisonRows)
+      ),
+      h("h3", { class: "frontline-calc__heading" }, "Why this recommendation"),
+      h("ul", { class: "frontline-reasoning" }, reasoningList)
+    );
+  }
+
   private trailHTML(): string {
     const items = each(this.state.history, (entry) => {
       const n = this.cfg.tree[entry.id];
@@ -832,6 +1262,7 @@ class Assessment {
           `  - ${this.cfg.tree[h.id]?.question ?? this.cfg.tree[h.id]?.title ?? h.id} → ${h.label ?? ""}`
       )
       .join("\n");
+    const frontlineBlock = node.computed === "frontline" ? this.buildFrontlineSummaryBlock() : "";
     const lines: (string | false)[] = [
       "M365 Profiles recommendation",
       "===========================",
@@ -842,6 +1273,7 @@ class Assessment {
       `Recommendation: ${node.title ?? "(see details)"}`,
       !!node.sub && node.sub,
       "",
+      !!frontlineBlock && frontlineBlock,
       !!node.bullets?.length &&
         ["Key points:", ...node.bullets.map((b) => `  • ${b}`), ""].join("\n"),
       "Your answers:",
@@ -853,6 +1285,54 @@ class Assessment {
       `Generated by m365-profiles ${APP_VERSION} — unofficial helper, not Microsoft guidance.`,
     ];
     return lines.filter((l): l is string => Boolean(l)).join("\n");
+  }
+
+  /** Plain-text rendering of the frontline computed recommendation for
+   *  inclusion in clipboard summary + PDF. */
+  private buildFrontlineSummaryBlock(): string {
+    const wstate = this.computeFrontlineState();
+    const rec = this.recommendFrontline(wstate);
+    const lines: string[] = [
+      "Frontline wizard — AI-assisted recommendation",
+      "---------------------------------------------",
+      `Recommended posture:  ${rec.baseSku.name}${rec.addons.length > 0 ? ` + ${rec.addons.length} add-on${rec.addons.length === 1 ? "" : "s"}` : ""}`,
+      `Total list price:     ${formatPrice(rec.monthlyTotal)} / user / month (USD, annual commitment)`,
+      `Pricing last verified: ${FRONTLINE_PRICING_LAST_VERIFIED}`,
+      `Canonical sources:`,
+      `  - ${MICROSOFT_365_FRONTLINE_PRICING.label}`,
+      `      ${MICROSOFT_365_FRONTLINE_PRICING.url}`,
+      `  - ${MICROSOFT_365_ENTERPRISE_PRICING.label}`,
+      `      ${MICROSOFT_365_ENTERPRISE_PRICING.url}`,
+      `  - ${MODERN_WORK_PLAN_COMPARISON.label}`,
+      `      ${MODERN_WORK_PLAN_COMPARISON.url}`,
+      `  - ${EXCHANGE_ONLINE_LIMITS.label}`,
+      `      ${EXCHANGE_ONLINE_LIMITS.url}`,
+      `  - ${MICROSOFT_365_LICENSING_DOCS.label}`,
+      `      ${MICROSOFT_365_LICENSING_DOCS.url}`,
+      "",
+      "Cost breakdown:",
+      `  - ${rec.baseSku.name}: ${formatPrice(rec.baseSku.cost)}`,
+    ];
+    for (const addon of rec.addons) {
+      lines.push(`  - ${addon.name}: +${formatPrice(addon.cost)}  (source: ${addon.source.url})`);
+    }
+    lines.push(`  = TOTAL: ${formatPrice(rec.monthlyTotal)} / user / month`);
+    lines.push("");
+    if (rec.hardFails.length) {
+      lines.push("Frontline ceiling hit on the following requirements:");
+      for (const reason of rec.hardFails) lines.push(`  ! ${reason}`);
+      lines.push("");
+    }
+    lines.push("Comparison:");
+    for (const row of rec.comparison) {
+      const flag = row.recommended ? "★ " : "  ";
+      lines.push(`  ${flag}${row.label}: ${formatPrice(row.total)} — ${row.delta}`);
+    }
+    lines.push("");
+    lines.push("Why this recommendation:");
+    for (const r of rec.reasoning) lines.push(`  • ${r}`);
+    lines.push("");
+    return lines.join("\n");
   }
 
   private async copySummary(node?: TreeNode): Promise<void> {
@@ -989,13 +1469,18 @@ class Assessment {
     this.toast("Building PDF…");
     try {
       const { buildHandoutPDF } = await import("./pdf");
+      // For computed results (e.g. frontline wizard) prepend the dynamic
+      // recommendation as additional paragraphs so the handout matches the
+      // on-screen card.
+      const extraParagraphs =
+        node.computed === "frontline" ? this.buildFrontlineSummaryBlock().split("\n") : [];
       await buildHandoutPDF({
         tenant: this.state.tenant,
         profile: this.state.profile,
         title: node.title ?? "Recommendation",
         sub: node.sub,
         bullets: node.bullets ?? [],
-        paragraphs: node.paragraphs ?? [],
+        paragraphs: [...extraParagraphs, ...(node.paragraphs ?? [])],
         docs: docsOf(node),
         trail: this.state.history.map((entry) => {
           const n = this.cfg.tree[entry.id];
@@ -1029,15 +1514,36 @@ function boot(): void {
   const dataEl = document.getElementById("tree-data");
   const root = document.getElementById("assessment");
   if (!dataEl || !root) return;
-  // Honour ?restart=1 (or ?fresh=1) on the URL — clears any saved progress so
-  // the assessment always starts from the first question. The flag is stripped
-  // from the address bar afterwards so a refresh doesn't keep clobbering state.
+  // Honour ?restart=1 / ?fresh=1 / ?entry=<nodeId> on the URL — clears any
+  // saved progress so the assessment always starts from the requested node
+  // (default: cfg.startId). When ?entry= is supplied AND points at a node
+  // that actually exists in the tree, we pre-seed sessionStorage with that
+  // node as currentId so the Assessment constructor loads it via load().
+  // The flags are stripped from the address bar afterwards so a refresh
+  // doesn't keep clobbering state.
   try {
     const url = new URL(window.location.href);
-    if (url.searchParams.has("restart") || url.searchParams.has("fresh")) {
+    const restart =
+      url.searchParams.has("restart") ||
+      url.searchParams.has("fresh") ||
+      url.searchParams.has("entry");
+    if (restart) {
       sessionStorage.removeItem(STORAGE_KEYS.assessmentState);
+      const entry = url.searchParams.get("entry");
+      if (entry) {
+        const cfgPeek = JSON.parse(dataEl.textContent || "{}") as Partial<Config>;
+        if (cfgPeek?.tree && Object.prototype.hasOwnProperty.call(cfgPeek.tree, entry)) {
+          const seed: State = { currentId: entry, history: [], version: APP_VERSION };
+          try {
+            sessionStorage.setItem(STORAGE_KEYS.assessmentState, JSON.stringify(seed));
+          } catch {
+            /* ignore — fall through to normal start */
+          }
+        }
+      }
       url.searchParams.delete("restart");
       url.searchParams.delete("fresh");
+      url.searchParams.delete("entry");
       history.replaceState(null, "", url.toString());
     }
   } catch {

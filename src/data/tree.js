@@ -216,10 +216,10 @@ export const TREE = {
       },
       {
         label: "Frontline worker (F1 / F3)",
-        sublabel: "Shift / deskless / field worker — retail, manufacturing, healthcare, hospitality. One question → F1 (no mailbox) or F3 (mailbox + mobile Office).",
+        sublabel: "Shift / deskless / field worker — retail, manufacturing, healthcare, hospitality. Step-by-step wizard walks Microsoft's eligibility criteria, then asks one question per E-vs-F feature gap, tracks add-on costs, and recommends F1 / F3 / F3 + add-ons / E3 / E5 by best total value.",
         icon: "4",
         tone: "primary",
-        target: "q_frontline_mailbox"
+        target: "q_frontline_eligibility"
       },
       {
         label: "Education (faculty / student)",
@@ -1275,25 +1275,322 @@ export const TREE = {
     yes: "result_smb_premium",
     no: "result_smb_basic"
   },
-  q_frontline_mailbox: {
-    step: { major: 2, sub: 1, subTotal: 1, label: "Frontline tier" },
-    question: "Does this frontline worker need their own Exchange Online mailbox (a personal mailbox at user@domain.com, not just a shared inbox)?",
-    help: "F1 has NO mailbox by design. F3 includes a 2 GB Exchange Online mailbox plus mobile Office apps + Defender for Office P1.",
+  q_frontline_eligibility: {
+    step: { major: 2, sub: 1, subTotal: 12, label: "Frontline · eligibility" },
+    question: "Does this user meet Microsoft's frontline-worker eligibility criteria (deskless / on-the-go / shared device / customer-facing) — and NOT operate as a headquarters information worker, IT admin, or developer?",
+    help: "Microsoft's frontline definition: workers who are 'on the go, often on mobile devices, and work directly with customers or the general public — they provide services, support, and sell products, or are directly involved in the manufacturing and distribution of products and services.' Information workers (HQ staff at a desk with a laptop) are NOT eligible for F SKUs.",
     rationale: {
-      why: "F1 is mailbox-less and is the cheapest M365 SKU — designed for Teams-first deskless workers. F3 roughly doubles the price to add the mailbox and mobile Office.",
-      yes: "buy F3 — the mailbox + mobile Office tier.",
-      no: "buy F1 — Teams + SharePoint + Intune + Entra ID P1 without a mailbox."
+      why: "F1 / F3 list at a fraction of E-series pricing precisely because they're scoped to a workforce profile Microsoft polices. Misassigning F to a headquarters knowledge worker is a Product Terms compliance issue and gets flagged in Microsoft licensing reviews.",
+      yes: "the user clears Microsoft's frontline eligibility test — continue through the E-vs-F feature wizard to land on the right F SKU (plus any approved add-ons) or, if too many features push past F's ceiling, an E uplift.",
+      no: "do NOT license this user with F1 / F3. Drop into the information-worker tree to land on E3 / E3 + Copilot / E5 / E7 instead."
     },
     examples: [
-      "Yes example: Healthcare nurse who receives shift schedules + patient assignments by email.",
-      "No example: Warehouse picker who only uses Teams shifts + push-to-talk on a shared device."
+      "Yes example: Retail store associate using a shared iPad to look up product info, run a POS, and check the shift schedule in Teams.",
+      "Yes example: Hospital nurse on a shared workstation-on-wheels using Teams Shifts, Tasks, and a clinical app.",
+      "Yes example: Warehouse picker with a rugged handheld scanner using Teams Walkie Talkie and Shifts.",
+      "No example: HQ marketing manager with a dedicated laptop authoring decks in PowerPoint and managing a 50 GB mailbox — that's an information worker, not frontline.",
+      "No example: IT helpdesk staff with a personal PC running Outlook desktop and remote-support tools — not frontline."
     ],
     techDocs: [
-      ["Compare frontline plans (F1 vs F3)", "https://learn.microsoft.com/microsoft-365/frontline/flw-licensing-options"],
-      ["Frontline worker license eligibility", "https://learn.microsoft.com/microsoft-365/frontline/flw-licensing-options#frontline-worker-license-eligibility"]
+      ["Understand frontline worker user types and licensing", "https://learn.microsoft.com/en-us/microsoft-365/frontline/flw-licensing-options?view=o365-worldwide"],
+      ["Microsoft 365 for frontline workers — overview", "https://learn.microsoft.com/en-us/microsoft-365/frontline/?view=o365-worldwide"],
+      ["Changing from a Microsoft 365 E plan to a Microsoft 365 F plan", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide"],
+      ["Microsoft 365 Frontline — plans & pricing (F1 / F3 comparison)", "https://www.microsoft.com/en-us/microsoft-365/enterprise/frontline-plans-and-pricing"],
+      ["Microsoft 365 Enterprise — plans & pricing (E3 / E5 comparison for the uplift fallback)", "https://www.microsoft.com/en-us/microsoft-365/enterprise/microsoft365-plans-and-pricing"],
+      ["Modern Work Plan Comparison — Enterprise (May 2026 PDF: the authoritative per-feature E/F/Defender Suite/Purview Suite matrix)", "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/education/Modern-Work-Plan-Comparison-Enterprise-5-1-2026.pdf"],
+      ["Exchange Online service-description limits (mailbox / archive / Recoverable Items / message size / send & receive rates across every plan)", "https://learn.microsoft.com/en-us/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits"],
+      ["Microsoft 365 — Licensing Resources and Documents (canonical hub: plan comparisons, service descriptions, Product Terms)", "https://www.microsoft.com/licensing/docs/view/Microsoft-365"],
+      ["Microsoft Product Terms — Microsoft 365 Online Services (frontline Use Rights & eligibility)", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
     ],
-    yes: "result_frontline_f3",
-    no: "result_frontline_f1"
+    frontline: {
+      yes: { flag: { key: "eligible", value: true } },
+      no: { ineligible: true }
+    },
+    yes: "q_frontline_desktop_apps",
+    no: "q_iw_security"
+  },
+  q_frontline_desktop_apps: {
+    step: { major: 2, sub: 2, subTotal: 12, label: "Frontline · feature gap" },
+    question: "Does this user need the installed Microsoft 365 desktop apps (Word, Excel, PowerPoint, OneNote, Outlook, Access, Publisher) on a Windows or Mac PC?",
+    help: "F1 and F3 do NOT include the desktop Office client apps — by design. F3 includes Office for the web and Office mobile apps; F1 is read-only for both. If this user authors documents on a desktop PC, that's an E-tier requirement and a hard fail for any F SKU.",
+    rationale: {
+      why: "Per Microsoft Learn's E-vs-F comparison table, the desktop client apps (Word, Excel, PowerPoint, OneNote, Outlook, Access, Publisher) are an E-tier benefit — they are explicitly NOT in any F plan and cannot be added as a frontline add-on.",
+      yes: "this is a hard fail for F SKUs — no Microsoft add-on bolts the installed desktop apps onto F1 / F3. Switch to E3 (or higher) as the baseline.",
+      no: "stay in the F evaluation — Office for the web (F3) or read-only access (F1) is enough."
+    },
+    examples: [
+      "Yes example: User edits Excel macros (.xlsm) regularly — macros do not run in Excel for the web.",
+      "Yes example: User uses Outlook desktop with .pst archives and 50+ MB attachments — F has no Outlook desktop.",
+      "No example: Store manager reviews policy PDFs and submits a weekly form in Word for the web — F3 covers this."
+    ],
+    techDocs: [
+      ["Changing from E to F — Microsoft 365 apps table", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#microsoft-365-apps"],
+      ["Office for the web service description", "https://learn.microsoft.com/en-us/office365/servicedescriptions/office-online-service-description/office-online-service-description"]
+    ],
+    frontline: {
+      yes: { hardFail: { key: "desktop_apps", reason: "User needs installed desktop Office apps (Word / Excel / PowerPoint / Outlook etc.). No frontline add-on bolts desktop Office onto F1 / F3 — this is an E-tier benefit.", upgrade: "e3" } }
+    },
+    yes: "q_frontline_screen_size",
+    no: "q_frontline_screen_size"
+  },
+  q_frontline_screen_size: {
+    step: { major: 2, sub: 3, subTotal: 12, label: "Frontline · feature gap" },
+    question: "Will this user run the Microsoft 365 mobile apps on a device with a screen LARGER than 10.9 inches (iPad Pro 12.9″, Surface Pro, larger Android tablets, etc.)?",
+    help: "F1 / F3 mobile-app commercial-use rights are explicitly capped at devices with integrated screens UNDER 10.9 inches. Larger tablets that run Office mobile apps cross into Office desktop licensing territory and require an E SKU.",
+    rationale: {
+      why: "Microsoft Learn states in the E-vs-F comparison: 'F plans are limited to devices with integrated screens smaller than 10.9 inches on Microsoft 365 for mobile apps.' Above that line, the device counts as a primary work device and requires Microsoft 365 Apps / E3 / E5 commercial-use rights.",
+      yes: "hard fail for F — there is no add-on that grants commercial-use rights on >10.9″ devices to an F user. Recommend E3.",
+      no: "stay in F evaluation — phones and smaller tablets are exactly the F target form factor."
+    },
+    examples: [
+      "Yes example: Field engineer issued a 12.9″ iPad Pro to author inspection reports — over the 10.9″ limit, must be E.",
+      "No example: Sales associate with a 10.2″ iPad shared across the team — under the limit, F is fine."
+    ],
+    techDocs: [
+      ["E vs F differences — mobile apps (10.9″ cap is footnote 1)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#microsoft-365-apps"],
+      ["Microsoft 365 mobile apps commercial-use rights", "https://www.microsoft.com/en-us/microsoft-365/mobile"]
+    ],
+    frontline: {
+      yes: { hardFail: { key: "screen_size", reason: "User runs M365 mobile apps on a device with a screen >10.9″ (iPad Pro / Surface Pro / large Android tablet). Microsoft caps F-plan mobile commercial-use rights at <10.9″ screens — there is no add-on. Requires E3 or higher.", upgrade: "e3" } }
+    },
+    yes: "q_frontline_mailbox",
+    no: "q_frontline_mailbox"
+  },
+  q_frontline_mailbox: {
+    step: { major: 2, sub: 4, subTotal: 12, label: "Frontline · mailbox" },
+    question: "Does this user need their own personal Exchange Online mailbox (user@domain.com), as opposed to communicating only via shared mailboxes / Teams / Viva Engage?",
+    help: "F1 has NO personal mailbox per the Exchange Online service-description limits — Microsoft provisions Exchange Online Kiosk-class plan only so the Teams calendar / free-busy works, and Microsoft recommends disabling Outlook on the web for F1 users. F3 includes a 2 GB Exchange Online mailbox (no archive mailbox; Recoverable Items quota 30 GB normal / 100 GB on hold) accessible via Outlook on the web and Outlook mobile.",
+    rationale: {
+      why: "The mailbox question is the single biggest F1 → F3 driver. F3 roughly quadruples the F1 list price ($2.25 → $8.00) because of the 2 GB mailbox + mobile Office uplift.",
+      yes: "needs a personal mailbox — F3 base is the floor (we'll check mailbox size next to see if you need to swap to Exchange Online Plan 2).",
+      no: "F1 base is the floor — they can use shared inboxes (free) and Teams for communications."
+    },
+    examples: [
+      "Yes example: Store manager who corresponds with vendors by email at firstname@retailco.com.",
+      "Yes example: Healthcare nurse who receives shift schedules and PHI-tagged emails personally.",
+      "No example: Warehouse picker who only uses Teams chat + Walkie Talkie + Shifts on a shared device — never receives email."
+    ],
+    techDocs: [
+      ["E vs F differences — Email section (F1 has no mailbox rights)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#email"],
+      ["Compare frontline plans (F1 vs F3)", "https://learn.microsoft.com/microsoft-365/frontline/flw-licensing-options"],
+      ["Exchange Online service-description limits (mailbox storage table: F1 / F3 / E3 / E5 sizes)", "https://learn.microsoft.com/en-us/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits#mailbox-storage-limits"]
+    ],
+    frontline: {
+      yes: { flag: { key: "needsMailbox", value: true } }
+    },
+    yes: "q_frontline_mailbox_size",
+    no: "q_frontline_archive_mailbox"
+  },
+  q_frontline_mailbox_size: {
+    step: { major: 2, sub: 5, subTotal: 12, label: "Frontline · mailbox" },
+    question: "Will this user's mailbox stay UNDER 2 GB?",
+    help: "F3's mailbox is capped at 2 GB per the Exchange Online service-description limits (Prohibit Send/Receive at 2 GB, Prohibit Send at 1.98 GB, Warning at 1.96 GB). If the user receives more than 2 GB of mail (typical for managers / heavy email recipients), they need Exchange Online Plan 2 ($8 / user / month, 100 GB mailbox + 100 GB → 1.5 TB auto-expanding archive) layered over F3 — OR you should re-evaluate against E3 which already includes a 100 GB mailbox. Note: Exchange Online Protection (EOP) is the free email security service included in every M365 plan; what you actually buy to bump the mailbox is Exchange Online Plan 2. Message size limit is 150 MB Outlook / 112 MB OWA / 33 MB Outlook mobile regardless of plan.",
+    rationale: {
+      why: "Over 2 GB the F3 mailbox is the bottleneck. F + Exchange Online Plan 2 = $8 + $8 = $16; that's still well under E3 ($36). But once you start stacking add-ons, the total climbs and E3 may win on value.",
+      yes: "stay on F3's bundled 2 GB mailbox — no add-on needed.",
+      no: "add Exchange Online Plan 2 (100 GB primary + 100 GB → 1.5 TB auto-expanding archive) — the wizard tracks the +$8 / user / month."
+    },
+    examples: [
+      "Yes example: Store associate who gets a few internal emails per day and Teams notifications — well under 2 GB.",
+      "No example: District manager copied on every vendor PO and HR escalation — burns through 2 GB in a quarter."
+    ],
+    techDocs: [
+      ["E vs F mailbox sizes table", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#email"],
+      ["Exchange Online plans & pricing", "https://www.microsoft.com/en-us/microsoft-365/exchange/compare-microsoft-exchange-online-plans"],
+      ["Exchange Online service-description limits — mailbox storage & capacity alerts (exact 2 GB / 50 GB / 100 GB / 1.5 TB tier numbers)", "https://learn.microsoft.com/en-us/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits#mailbox-storage-limits"]
+    ],
+    frontline: {
+      no: { addon: { key: "exchange_online_p2" } }
+    },
+    yes: "q_frontline_archive_mailbox",
+    no: "q_frontline_archive_mailbox"
+  },
+  q_frontline_archive_mailbox: {
+    step: { major: 2, sub: 6, subTotal: 12, label: "Frontline · compliance" },
+    question: "Does this user need an Exchange Online archive mailbox or delegate-access mailbox features (delegated calendars, send-on-behalf-of, shared-mailbox delegation)?",
+    help: "F1 and F3 do NOT include an archive mailbox OR delegate access — both are E-tier features per the E-vs-F comparison and the Exchange Online service-description limits (Archive mailbox row: Frontline = 'Not available'; Kiosk = N/A; Plan 1 = 50 GB; Plan 2 = 1.5 TB auto-expanding from initial 100 GB). Adding Exchange Online Plan 2 ($8) on top of F3 brings the 100 GB → 1.5 TB auto-expanding archive plus delegate access. Recoverable Items quotas: 30 GB normal, 100 GB on hold (primary mailbox); 1.5 TB inside the auto-expanding archive when Plan 2 is in effect.",
+    rationale: {
+      why: "Archive + delegate-access are part of Exchange Online Plan 2 — they don't exist as standalone add-ons on F SKUs. If both mailbox size > 2 GB AND archive are needed, EOP2 covers both with the same $8 add-on.",
+      yes: "ensure Exchange Online Plan 2 is in the cart (the wizard adds it automatically) — if it's already there from the mailbox-size step, no double-charge.",
+      no: "no archive add-on needed."
+    },
+    examples: [
+      "Yes example: Compliance-sensitive role (healthcare, finance) where retention policies require multi-year mailbox archive.",
+      "No example: Frontline associate who clears their inbox weekly and never delegates."
+    ],
+    techDocs: [
+      ["E vs F email features (Archive mailbox / Delegate access rows)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#email"],
+      ["Exchange Online Plan 2 — service description", "https://learn.microsoft.com/en-us/office365/servicedescriptions/exchange-online-service-description/exchange-online-service-description"],
+      ["Exchange Online limits — mailbox folder & archive storage (100 GB → 1.5 TB auto-expanding behaviour, Recoverable Items 30 GB / 100 GB on hold)", "https://learn.microsoft.com/en-us/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits#mailbox-folder-limits"],
+      ["Overview of auto-expanding archiving (how the 100 GB → 1.5 TB ramp is triggered)", "https://learn.microsoft.com/en-us/purview/autoexpanding-archiving"]
+    ],
+    frontline: {
+      yes: { addon: { key: "exchange_online_p2" } }
+    },
+    yes: "q_frontline_onedrive",
+    no: "q_frontline_onedrive"
+  },
+  q_frontline_onedrive: {
+    step: { major: 2, sub: 7, subTotal: 12, label: "Frontline · storage" },
+    question: "Will this user need MORE than 2 GB of personal OneDrive storage?",
+    help: "F1 and F3 are capped at 2 GB of OneDrive. There is no per-user OneDrive add-on for F SKUs that lifts the cap — Microsoft directs you to E3 (1+ TB OneDrive) if the cap is a blocker. Important workaround: most frontline workers can use SharePoint document libraries or Teams channel files instead of personal OneDrive.",
+    rationale: {
+      why: "OneDrive cap is a hard ceiling on F. The fix is either 'move files to SharePoint / Teams' (free) or 'switch to E3' (extra $28 / user / month over F3 just for storage).",
+      yes: "hard fail for F — no per-user OneDrive add-on lifts the cap. Recommend E3.",
+      no: "stay in F evaluation — 2 GB is enough."
+    },
+    examples: [
+      "Yes example: Field photographer storing weekly site photos in personal OneDrive — easily over 2 GB.",
+      "No example: Worker who edits documents in shared SharePoint sites and Teams channels (the org's actual storage, not personal OneDrive)."
+    ],
+    techDocs: [
+      ["E vs F OneDrive table (2 GB cap, OneDrive becomes read-only over cap)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#onedrive"]
+    ],
+    frontline: {
+      yes: { hardFail: { key: "onedrive_storage", reason: "User needs >2 GB OneDrive. F1 / F3 are capped at 2 GB and there is no per-user OneDrive add-on. The fix is either move files to SharePoint / Teams or recommend E3 (1+ TB included).", upgrade: "e3" } }
+    },
+    yes: "q_frontline_teams_phone",
+    no: "q_frontline_teams_phone"
+  },
+  q_frontline_teams_phone: {
+    step: { major: 2, sub: 8, subTotal: 12, label: "Frontline · communications" },
+    question: "Does this user need Teams Phone (PSTN calling — dial public phone numbers from Teams)?",
+    help: "F1 / F3 with Teams include chat, channels, meetings, and apps — but NOT Teams Phone (PSTN calling). Microsoft sells a dedicated frontline add-on: Teams Phone Standard for Frontline Workers (~$4 / user / month), authorised for F1 / F3 users specifically. Pair with a Calling Plan or Direct Routing for PSTN dial tone.",
+    rationale: {
+      why: "Teams Phone is a per-user add-on. Microsoft created the 'Standard for Frontline Workers' SKU specifically so F users can have calling without uplift to E5 (which bundles Teams Phone).",
+      yes: "add Teams Phone Standard for Frontline Workers (the wizard adds +$4).",
+      no: "no calling add-on needed."
+    },
+    examples: [
+      "Yes example: Store manager who answers customer calls forwarded from the store's main number.",
+      "No example: Floor associate who only uses Teams chat and Walkie Talkie."
+    ],
+    techDocs: [
+      ["E vs F Teams Phone Standard for Frontline Workers row", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#teams"],
+      ["Teams add-on licensing — Phone for Frontline Workers", "https://learn.microsoft.com/en-us/microsoftteams/teams-add-on-licensing/microsoft-teams-add-on-licensing"]
+    ],
+    frontline: {
+      yes: { addon: { key: "teams_phone_frontline" } }
+    },
+    yes: "q_frontline_meetings",
+    no: "q_frontline_meetings"
+  },
+  q_frontline_meetings: {
+    step: { major: 2, sub: 9, subTotal: 12, label: "Frontline · communications" },
+    question: "Does this user need to HOST town halls, webinars, or large-audience structured meetings (not just join them)?",
+    help: "Hosting town halls and webinars requires the Teams Enterprise add-on on top of F SKUs. Joining a town hall / webinar that someone else organised does NOT require the add-on. The Microsoft 365 + Teams 2025 packaging update introduced this layer.",
+    rationale: {
+      why: "Per the E-vs-F comparison, town hall and webinar hosting are 'Available by adding Teams Enterprise or Teams EEA' on F plans. The Teams Enterprise add-on lists at $5.25 / user / month.",
+      yes: "add Teams Enterprise add-on (+$5.25).",
+      no: "F's bundled Teams chat / channels / regular meetings is enough."
+    },
+    examples: [
+      "Yes example: Field operations lead who runs monthly all-hands town halls for 500 frontline staff — needs to host.",
+      "No example: Frontline employee who joins the company town hall from a tablet — no host license needed."
+    ],
+    techDocs: [
+      ["E vs F Teams (Town hall / Webinars rows)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide#teams"],
+      ["Microsoft 365 + Teams 2025 packaging update", "https://www.microsoft.com/en-us/licensing/news/Microsoft365-Teams-2025"]
+    ],
+    frontline: {
+      yes: { addon: { key: "teams_enterprise_addon" } }
+    },
+    yes: "q_frontline_defender_endpoint",
+    no: "q_frontline_defender_endpoint"
+  },
+  q_frontline_defender_endpoint: {
+    step: { major: 2, sub: 10, subTotal: 12, label: "Frontline · security" },
+    question: "Does this user's device need Microsoft Defender for Endpoint (next-gen AV + attack-surface reduction + EDR)?",
+    help: "F1 / F3 do NOT bundle Defender for Endpoint. Add Defender for Endpoint Plan 1 (~$3 / user / month) for next-gen AV + ASR + manual response; add Plan 2 (~$5.20) for EDR + automated investigation + threat hunting + vulnerability management. Microsoft also sells a frontline-specific 'Defender Suite FLW' bundle (Defender XDR for F1 / F3 users) that may be cheaper than stacking individual Defender add-ons — confirm availability and pricing with your Microsoft account team (it is not publicly listed).",
+    rationale: {
+      why: "Defender for Endpoint is per-user (with per-device fallback for kiosk scenarios). Plan 1 is the minimum any Microsoft-managed Windows device should run; Plan 2 is the SOC-grade tier.",
+      yes: "add Defender for Endpoint Plan 1 (the wizard adds +$3 — bump to P2 manually if you need EDR + threat hunting, or ask about the Defender Suite FLW bundle).",
+      no: "no endpoint AV add-on (verify the device is protected by another vendor's AV)."
+    },
+    examples: [
+      "Yes example: Windows POS terminal that browses the internet for product lookups — Plan 1 minimum.",
+      "Yes example: Shared workstation that handles PII / PHI — Plan 2 for EDR + auto-response.",
+      "No example: Locked-down kiosk that only runs one signed Teams app — already protected by Windows Defender baseline."
+    ],
+    techDocs: [
+      ["Microsoft Defender for Endpoint Plan 1 vs Plan 2", "https://learn.microsoft.com/en-us/defender-endpoint/defender-endpoint-plan-1-2"],
+      ["Defender for Endpoint licensing options for frontline / F SKUs", "https://learn.microsoft.com/en-us/defender-endpoint/minimum-requirements"],
+      ["Modern Work Plan Comparison PDF — Defender Suite FLW row (frontline-specific Defender bundle)", "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/education/Modern-Work-Plan-Comparison-Enterprise-5-1-2026.pdf"]
+    ],
+    frontline: {
+      yes: { addon: { key: "defender_endpoint_p1" } }
+    },
+    yes: "q_frontline_defender_office",
+    no: "q_frontline_defender_office"
+  },
+  q_frontline_defender_office: {
+    step: { major: 2, sub: 11, subTotal: 12, label: "Frontline · security" },
+    question: "Does this user need Microsoft Defender for Office 365 Plan 2 (Threat Explorer, Attack Simulation Training, Threat Trackers, Campaign Views — i.e. SOC-grade email security)?",
+    help: "F3 already includes Defender for Office 365 Plan 1 (Safe Links + Safe Attachments). F1 has no mailbox so Defender for Office doesn't apply. Plan 2 (+$5 over P1) layers SOC tooling on top.",
+    rationale: {
+      why: "Plan 2 is what a security team uses to investigate phishing campaigns and run user simulation training. Most frontline cohorts can live on P1 (already bundled in F3).",
+      yes: "add Defender for Office 365 Plan 2 (+$5).",
+      no: "F3's bundled Plan 1 is enough (F1 has no mailbox so this doesn't apply)."
+    },
+    examples: [
+      "Yes example: Healthcare role where the SOC needs Threat Explorer to investigate spear-phishing against named clinicians.",
+      "No example: Retail associate whose mailbox is low-risk and only used for HR comms."
+    ],
+    techDocs: [
+      ["Microsoft Defender for Office 365 — Plan 1 vs Plan 2", "https://learn.microsoft.com/en-us/defender-office-365/mdo-about"]
+    ],
+    frontline: {
+      yes: { addon: { key: "defender_office_p2" } }
+    },
+    yes: "q_frontline_purview",
+    no: "q_frontline_purview"
+  },
+  q_frontline_purview: {
+    step: { major: 2, sub: 12, subTotal: 12, label: "Frontline · compliance & AI" },
+    question: "Does this user need Microsoft Purview E5 Compliance — full DLP across endpoints / SharePoint / OneDrive, Insider Risk Management, Communication Compliance, eDiscovery Premium, Customer Lockbox?",
+    help: "F1 / F3 do NOT include Purview E5 features. You can layer the Microsoft 365 E5 Compliance add-on (~$12 / user / month) on top of F SKUs, but at that price point + F3 base + likely other add-ons, the math almost always favours uplifting to M365 E5 ($57) which bundles Purview E5 + Defender XDR + Entra ID P2 + Power BI Pro + Teams Phone. Microsoft also sells frontline-specific 'Purview Suite FLW' and combined 'Defender + Purview Suite FLW' bundles (Purview E5 features for F1 / F3 users) — these are not publicly priced; ask your Microsoft account team whether they apply before assuming an E5 uplift.",
+    rationale: {
+      why: "Purview E5 is the highest-priced add-on Microsoft sells for compliance. It exists as an F-compatible add-on, but the cumulative F + Phone + EOP2 + Defender P2 + Office P2 + Purview stack usually crosses the E5 list price. The wizard will flag the cheaper recommendation in the final result.",
+      yes: "this is borderline — the wizard records it and the final result will tell you whether F3 + add-ons or M365 E5 is cheaper. Likely E5 (or the Purview Suite FLW bundle if your account team confirms it).",
+      no: "no Purview add-on — F's bundled basic eDiscovery / retention is enough."
+    },
+    examples: [
+      "Yes example: Frontline cohort in a regulated industry (financial advice, healthcare) where IRM and Comm Compliance are mandatory across the workforce.",
+      "No example: Retail floor staff whose only sensitive data is the schedule and the price list."
+    ],
+    techDocs: [
+      ["Microsoft 365 E5 Compliance add-on (Purview plans)", "https://www.microsoft.com/en-us/security/business/compliance/compliance-plans"],
+      ["Purview service description — which users need a licence", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-purview-service-description#which-users-need-a-license"],
+      ["Modern Work Plan Comparison PDF — Purview Suite FLW & Defender+Purview Suite FLW rows (frontline-specific compliance bundles)", "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/education/Modern-Work-Plan-Comparison-Enterprise-5-1-2026.pdf"]
+    ],
+    frontline: {
+      yes: { addon: { key: "purview_dlp" }, softFlag: { key: "considerE5" } }
+    },
+    yes: "q_frontline_copilot",
+    no: "q_frontline_copilot"
+  },
+  q_frontline_copilot: {
+    step: { major: 2, sub: 12, subTotal: 12, label: "Frontline · compliance & AI", secondary: true },
+    question: "Does this user need Microsoft 365 Copilot (AI in Office, Teams, and Copilot Chat)?",
+    help: "Microsoft 365 Copilot lists at $30 / user / month as a per-user add-on. Microsoft has begun authorising Copilot for select frontline scenarios — verify availability for F1 / F3 with your account team before purchasing. Copilot for Frontline is being rolled out in 2025–2026 packaging updates.",
+    rationale: {
+      why: "Copilot is the single most expensive per-user add-on in the M365 catalog. On F3 it almost doubles total seat cost. AI-assisted summary at the end of the wizard surfaces whether Copilot pushes you past E5 + Copilot list price (where E7 / Frontier may win).",
+      yes: "add Microsoft 365 Copilot (+$30). The wizard's final summary will compare against E5 + Copilot.",
+      no: "no Copilot add-on."
+    },
+    examples: [
+      "Yes example: Store manager piloting Copilot in Outlook to draft customer-issue responses faster.",
+      "No example: Frontline associate whose workload is fully task-driven (Shifts / Walkie Talkie) and doesn't author content."
+    ],
+    techDocs: [
+      ["Microsoft 365 Copilot — plans & pricing", "https://www.microsoft.com/en-us/microsoft-365/copilot/copilot-for-work"],
+      ["Microsoft 365 Copilot service description", "https://learn.microsoft.com/en-us/copilot/microsoft-365/microsoft-365-copilot-licensing"]
+    ],
+    frontline: {
+      yes: { addon: { key: "copilot_m365" } }
+    },
+    yes: "result_frontline_computed",
+    no: "result_frontline_computed"
   },
   q_edu_security: {
     step: { major: 2, sub: 1, subTotal: 2, label: "Education tier" },
@@ -2060,6 +2357,35 @@ export const TREE = {
       ["M365 Comparison table — Enterprise & Frontline plans (PDF)", "https://aka.ms/M365EnterprisePlans"]
     ],
     actions: [
+      { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
+    ]
+  },
+  result_frontline_computed: {
+    result: true,
+    computed: "frontline",
+    badge: "AI-assisted recommendation",
+    badgeClass: "badge-info",
+    title: "Your best-value frontline recommendation",
+    sub: "Computed live from your answers — base SKU + every Microsoft-approved add-on you flagged, totalled and compared against E3 and E5 list prices so you get the cheapest licensing posture that still meets every requirement.",
+    decisionBasis: "You completed the step-by-step frontline qualification wizard. The recommendation below is computed from your eligibility check, the per-feature E-vs-F gap walkthrough, and the Microsoft list prices for every add-on you said Yes to.",
+    paragraphs: [
+      "This card is generated by an AI-assisted calculator that aggregates every Yes you gave through the wizard into one of four outcomes: (1) F1 base, (2) F3 base, (3) F3 + Microsoft-approved add-ons, or (4) E3 / E5 uplift because either a hard-fail feature gap was flagged OR the cumulative F + add-on cost exceeded the corresponding E SKU list price.",
+      "Cost figures are Microsoft public list prices on annual commitment in USD. Your actual CSP / EA / EES / partner-channel pricing will differ — always confirm with your Microsoft account team before purchase.",
+      "Run the wizard again from a different starting point to see how a single requirement (e.g. mailbox > 2 GB, Copilot, Defender Plan 2) shifts the breakeven against E3 / E5."
+    ],
+    docs: [
+      ["Changing from a Microsoft 365 E plan to a Microsoft 365 F plan (canonical E-vs-F gap reference)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/switch-from-enterprise-to-frontline?view=o365-worldwide"],
+      ["Understand frontline worker user types and licensing (eligibility definition)", "https://learn.microsoft.com/en-us/microsoft-365/frontline/flw-licensing-options?view=o365-worldwide"],
+      ["Microsoft 365 — Licensing Resources and Documents (canonical hub: plan comparisons, service descriptions, Product Terms)", "https://www.microsoft.com/licensing/docs/view/Microsoft-365"],
+      ["Microsoft 365 frontline plans & pricing", "https://www.microsoft.com/en-us/microsoft-365/enterprise/frontline-plans-and-pricing"],
+      ["Microsoft 365 Enterprise plans & pricing", "https://www.microsoft.com/en-us/microsoft-365/enterprise/microsoft365-plans-and-pricing"],
+      ["Modern Work Plan Comparison — Enterprise (May 2026 PDF: authoritative per-feature matrix incl. Defender Suite FLW & Purview Suite FLW)", "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/education/Modern-Work-Plan-Comparison-Enterprise-5-1-2026.pdf"],
+      ["Microsoft Product Terms — Microsoft 365 Online Services (frontline Use Rights)", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
+    ],
+    actions: [
+      { label: "Re-run frontline wizard", target: "q_frontline_eligibility", tone: "primary" },
+      { label: "Deep-dive: Microsoft 365 F1 details", target: "result_frontline_f1", tone: "secondary" },
+      { label: "Deep-dive: Microsoft 365 F3 details", target: "result_frontline_f3", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },

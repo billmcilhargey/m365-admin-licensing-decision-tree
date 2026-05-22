@@ -57,13 +57,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Content-addressed cache: primary key includes a hash of src/ so a
+      # source change forces a new cache entry to be saved at job end. The
+      # restore-keys fallback hydrates with the most recent cache from the
+      # same lockfile + config — incremental rebuilds reuse Astro's content
+      # collection cache and Vite's dep-optimizer cache. GitHub auto-evicts
+      # stale entries (7 days idle or when the 10 GB repo quota is hit), so
+      # no manual clearing is needed.
       - name: Cache Astro build outputs
         uses: actions/cache@v4
         with:
           path: |
             .astro
             node_modules/.astro
-          key: astro-${{ runner.os }}-${{ hashFiles('package-lock.json', 'astro.config.mjs') }}-${{ hashFiles('src/**', 'public/**') }}
+            node_modules/.vite
+          key: astro-${{ runner.os }}-${{ hashFiles('package-lock.json', 'astro.config.mjs') }}-${{ hashFiles('src/**') }}
           restore-keys: |
             astro-${{ runner.os }}-${{ hashFiles('package-lock.json', 'astro.config.mjs') }}-
 
@@ -93,13 +101,15 @@ jobs:
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "Resolved site=$url base=$base"
 
+      # Use astro build directly — the validate-tree step above already ran,
+      # and `npm run build` would re-run it. Saves a few seconds per build.
       - name: Build Astro site
         env:
           PUBLIC_APP_VERSION: ${{ steps.ver.outputs.tag }}
           PUBLIC_BUILD_DATE: ${{ steps.ver.outputs.iso }}
           PUBLIC_SITE_URL: ${{ steps.site.outputs.url }}
           PUBLIC_SITE_BASE: ${{ steps.site.outputs.base }}
-        run: npm run build
+        run: npx astro build
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

@@ -116,8 +116,37 @@ export type TreeNode = {
   bullets?: string[];
   actions?: Action[];
   result?: true;
+  /** Wizard-state computed result. When set, the engine renders dynamic
+   *  content from the matching wizard state slice (e.g. `state.frontline`). */
+  computed?: "frontline";
+  /** Metadata read by the frontline wizard engine on Yes / No transitions. */
+  frontline?: FrontlineNodeMeta;
   yes?: string;
   no?: string;
+};
+
+/**
+ * Metadata read by the assessment engine when the user answers a frontline
+ * wizard question. The Yes / No branches each describe what should happen
+ * to the wizard state — flag a need, add a Microsoft-approved add-on,
+ * record a hard-fail feature gap, or mark the user as ineligible for F.
+ */
+export type FrontlineNodeMeta = {
+  yes?: FrontlineEffect;
+  no?: FrontlineEffect;
+};
+
+export type FrontlineEffect = {
+  /** Boolean flag to set on the wizard state (e.g. needsMailbox=true). */
+  flag?: { key: string; value: boolean };
+  /** Add-on to push onto the wizard's add-on list (keyed; dedupe on key). */
+  addon?: { key: string };
+  /** Soft advisory flag (e.g. considerE5) — does not force an uplift on its own. */
+  softFlag?: { key: string };
+  /** Hard-fail feature gap that no add-on can close — forces an E uplift. */
+  hardFail?: { key: string; reason: string; upgrade: "e3" | "e5" };
+  /** User fails the frontline eligibility test — route to information-worker tree. */
+  ineligible?: true;
 };
 
 export type Tree = Record<string, TreeNode>;
@@ -212,7 +241,7 @@ const PROFILE_KEY_BY_TARGET: Record<string, string> = {
   start: "admin",
   result_primary_account: "primary_account",
   q_iw_security: "iw",
-  q_frontline_mailbox: "frontline",
+  q_frontline_eligibility: "frontline",
   q_edu_security: "edu",
   q_gov_profile_cloud: "gov",
   q_npo_seats: "npo",
@@ -371,4 +400,30 @@ export function buildProfileOutcomeMatrix(tree: Tree = TREE): Map<string, Map<st
     matrix.set(profile.key, row);
   }
   return matrix;
+}
+
+/** Look up a profile by its key (used by /profiles/[slug] dynamic route). */
+export function getProfileByKey(key: string): Profile | undefined {
+  return PROFILES.find((p) => p.key === key);
+}
+
+/**
+ * For a single profile, return one chip per outcome bucket that the profile's
+ * decision path actually lands on, in descending order of how many results
+ * land in that bucket. Each chip carries the top (first reachable) result id
+ * so the caller can deep-link straight into the reference catalog.
+ */
+export function profileOutcomeChips(
+  profileKey: string,
+  tree: Tree = TREE
+): { outcome: Outcome; count: number; topResultId: string }[] {
+  const matrix = buildProfileOutcomeMatrix(tree);
+  const row = matrix.get(profileKey);
+  if (!row) return [];
+  return OUTCOMES.map((o) => {
+    const ids = row.get(o.key) ?? [];
+    return { outcome: o, count: ids.length, topResultId: ids[0] ?? "" };
+  })
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count);
 }

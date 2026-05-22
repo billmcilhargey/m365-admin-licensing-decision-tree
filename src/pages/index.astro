@@ -177,13 +177,13 @@ const description =
       <div class="grid grid--3 profile-grid">
         {
           profiles.map((p) => (
-            <a class="card card--interactive profile-card" href={`${base}/assessment?restart=1`}>
+            <a class="card card--interactive profile-card" href={`${base}/profiles/${p.key}`}>
               <div class="profile-card__icon" aria-hidden="true">
                 {p.icon}
               </div>
               <h3>{p.title}</h3>
               <p>{p.desc}</p>
-              <span class="profile-card__link">Start tree →</span>
+              <span class="profile-card__link">See profile details →</span>
             </a>
           ))
         }
