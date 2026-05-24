@@ -25,6 +25,8 @@ import {
   MODERN_WORK_PLAN_COMPARISON,
   PRICING_LAST_VERIFIED,
   formatPrice,
+  getResultPricing,
+  sumLines,
   type PriceItem,
 } from "../lib/pricing";
 
@@ -506,8 +508,21 @@ class Assessment {
           : `Continue — No (none of ${totalCount} apply)`
         : "No — none apply"
       : "No";
-    const yesBtnClass = `btn btn-primary ${recommendation === "yes" ? "btn--recommended" : ""} ${interactive && recommendation && recommendation !== "yes" ? "btn--secondary-recommendation" : ""}`;
-    const noBtnClass = `btn btn-secondary ${recommendation === "no" ? "btn--recommended" : ""} ${interactive && recommendation && recommendation !== "no" ? "btn--secondary-recommendation" : ""}`;
+    // Visual roles: when a recommendation exists, the recommended button
+    // takes the primary (filled) role and the alternative takes the secondary
+    // (outlined) role — this reverses the default Yes=primary/No=secondary
+    // pairing when the computed answer is No, so the user can't miss which
+    // button to press. Without a recommendation we keep the conventional
+    // Yes=primary/No=secondary pairing.
+    const yesBaseClass = interactive && recommendation === "no" ? "btn-secondary" : "btn-primary";
+    const noBaseClass =
+      interactive && recommendation === "yes"
+        ? "btn-secondary"
+        : recommendation === "no"
+          ? "btn-primary"
+          : "btn-secondary";
+    const yesBtnClass = `btn ${yesBaseClass} ${recommendation === "yes" ? "btn--recommended" : ""} ${interactive && recommendation && recommendation !== "yes" ? "btn--secondary-recommendation" : ""}`;
+    const noBtnClass = `btn ${noBaseClass} ${recommendation === "no" ? "btn--recommended" : ""} ${interactive && recommendation && recommendation !== "no" ? "btn--secondary-recommendation" : ""}`;
     const wrapperClasses = ["yesno"];
     if (interactive) wrapperClasses.push("yesno--interactive");
     // `yesno--finale` triggers the one-shot pulse on the recommended button
@@ -551,7 +566,12 @@ class Assessment {
       // Computed (dynamic) results: inject wizard-derived content above the
       // static bullets and actions. Currently only the frontline wizard uses
       // this; new computed results can switch on `node.computed`.
-      node.computed === "frontline" ? this.frontlineComputedHTML() : "",
+      // For all OTHER result nodes, render the static result-level pricing
+      // recommendation (cost breakdown + comparison chart + AI reasoning +
+      // privileged-admin lens) if one exists in RESULT_PRICING.
+      node.computed === "frontline"
+        ? this.frontlineComputedHTML()
+        : this.resultPricingHTML(this.state.currentId),
       node.bullets?.length
         ? h(
             "ul",
@@ -1342,7 +1362,7 @@ class Assessment {
       }
       if (branch.softFlag) state.softFlags.add(branch.softFlag.key);
       if (branch.addon) {
-        const item = ADDONS[branch.addon.key];
+        const item = (ADDONS as Record<string, PriceItem>)[branch.addon.key];
         if (item) state.addons.set(item.key, item);
       }
       if (branch.hardFail) {
@@ -1519,6 +1539,273 @@ class Assessment {
     if (Math.abs(diff) < 0.005) return "Same price";
     const sign = diff > 0 ? "+" : "−";
     return `${sign}${formatPrice(Math.abs(diff))} / user / month vs. recommended`;
+  }
+
+  /** Detect whether the user picked the privileged-admin profile at the
+   *  start. Drives whether the result-pricing panel renders the privileged-
+   *  admin lens callout (cross-references info_privileged_admins). */
+  private isPrivilegedAdminProfile(): boolean {
+    const p = (this.state.profile ?? "").toLowerCase();
+    return p.includes("admin") || p.includes("privileged");
+  }
+
+  /** Build the static result-pricing panel for any result node that has an
+   *  entry in RESULT_PRICING. Layout mirrors the frontline computed panel
+   *  for visual consistency: AI-assisted callout → optional privileged-admin
+   *  lens callout → cost-breakdown table → comparison bar chart → reasoning
+   *  list → canonical sources. Specialty-priced SKUs (E7, Education,
+   *  Government, Nonprofit, External ID) skip the numeric tables and bar
+   *  chart and render a "contact your Microsoft account team" note instead. */
+  private resultPricingHTML(resultId: string): string {
+    const rec = getResultPricing(resultId);
+    if (!rec) return ""; // no pricing data — graceful fallback
+    const isPrivAdmin = this.isPrivilegedAdminProfile();
+    const recommendedTotal = sumLines(rec.lines);
+    const hasNumericTotal = rec.lines.some((l) => l.cost !== null);
+
+    // Cost-breakdown rows. Specialty SKUs (cost: null) render with a "—"
+    // in the cost column instead of $0 to keep "no list price" honest.
+    const lineRows = each(rec.lines, (line) => {
+      const labelCell =
+        line.source != null
+          ? h(
+              "a",
+              { href: line.source.url, target: "_blank", rel: "noopener" },
+              escapeHTML(line.label)
+            )
+          : escapeHTML(line.label);
+      const costCell =
+        line.cost === null
+          ? h("span", { class: "result-pricing__cost-na" }, "—")
+          : formatPrice(line.cost);
+      return h(
+        "tr",
+        { class: "frontline-calc__row" },
+        h("td", null, labelCell),
+        h("td", { class: "frontline-calc__cost" }, costCell),
+        h("td", null, escapeHTML(line.note ?? ""))
+      );
+    });
+
+    const totalRow = hasNumericTotal
+      ? h(
+          "tr",
+          { class: "frontline-calc__row frontline-calc__row--total" },
+          h("td", null, h("strong", null, "Total per user / month (USD)")),
+          h(
+            "td",
+            { class: "frontline-calc__cost" },
+            h("strong", null, formatPrice(recommendedTotal))
+          ),
+          h("td", null, "List price, annual commitment.")
+        )
+      : "";
+
+    // Bar-chart-friendly comparison rows. The chart is rendered as a CSS
+    // bar with width proportional to cost — recommended row is highlighted.
+    // Use the max across all numeric values (recommended + alternatives)
+    // as the bar denominator so the recommended row's bar reflects its
+    // RELATIVE size next to the alternatives, not just the highest.
+    const numericAlternatives = rec.alternatives.filter((a) => a.cost !== null);
+    const maxCost = Math.max(
+      recommendedTotal,
+      ...numericAlternatives.map((a) => a.cost as number),
+      0.01 // avoid divide-by-zero when everything is $0
+    );
+
+    // Build chart entries: recommended posture first, then each alternative
+    // in declared order. Each entry has its own bar width % of max.
+    const chartEntries = [
+      {
+        label: rec.recommendationLabel,
+        cost: hasNumericTotal ? recommendedTotal : null,
+        delta: "Recommended",
+        note: "Closes every requirement you flagged at the lowest list price.",
+        recommended: true,
+      },
+      ...rec.alternatives.map((alt) => ({
+        label: alt.label,
+        cost: alt.cost,
+        delta:
+          alt.cost === null
+            ? "Specialty — contact account team"
+            : hasNumericTotal
+              ? this.formatDelta(alt.cost, recommendedTotal)
+              : "—",
+        note: alt.note,
+        recommended: false,
+      })),
+    ];
+
+    const chartRows = each(chartEntries, (entry) => {
+      const widthPct =
+        entry.cost === null ? 0 : Math.max(2, Math.round((entry.cost / maxCost) * 100));
+      const barLabel = entry.cost === null ? "n/a" : formatPrice(entry.cost);
+      return h(
+        "tr",
+        {
+          class: `frontline-compare__row${entry.recommended ? " frontline-compare__row--rec" : ""}`,
+        },
+        h(
+          "td",
+          null,
+          entry.recommended ? h("strong", null, escapeHTML(entry.label)) : escapeHTML(entry.label)
+        ),
+        h(
+          "td",
+          { class: "result-pricing__chart-cell" },
+          h(
+            "div",
+            { class: "result-pricing__chart-row" },
+            h(
+              "div",
+              {
+                class: `result-pricing__bar${entry.recommended ? " result-pricing__bar--rec" : ""}`,
+                style: `width: ${widthPct}%`,
+                "aria-hidden": "true",
+              },
+              ""
+            ),
+            h("span", { class: "result-pricing__bar-label" }, barLabel)
+          )
+        ),
+        h("td", null, escapeHTML(entry.delta)),
+        h("td", null, escapeHTML(entry.note ?? ""))
+      );
+    });
+
+    const reasoningList = each(rec.reasoning, (r) => h("li", null, escapeHTML(r)));
+
+    const specialtyNote = rec.specialty
+      ? h(
+          "div",
+          { class: "frontline-callout frontline-callout--warn" },
+          h(
+            "p",
+            null,
+            h("strong", null, "Specialty pricing. "),
+            "This SKU does not have a flat public list price. The recommendation, sources, and reasoning below are accurate as of " +
+              escapeHTML(PRICING_LAST_VERIFIED) +
+              " — always confirm pricing with your Microsoft account team or the appropriate channel (Education / Government / Nonprofit / Federal)."
+          )
+        )
+      : "";
+
+    const privAdminLens =
+      isPrivAdmin && rec.privilegedAdminLens
+        ? h(
+            "div",
+            { class: "frontline-callout result-pricing__priv-admin" },
+            h(
+              "p",
+              null,
+              h("strong", null, "Privileged-admin lens. "),
+              escapeHTML(rec.privilegedAdminLens)
+            ),
+            h(
+              "p",
+              { class: "frontline-callout__source" },
+              "Full guide: ",
+              h(
+                "a",
+                {
+                  href: "#",
+                  "data-helplink": "info_privileged_admins",
+                },
+                "Why privileged (dedicated) admin accounts? (info_privileged_admins)"
+              )
+            )
+          )
+        : "";
+
+    return h(
+      "section",
+      { class: "frontline-computed result-pricing", "data-result-id": resultId },
+      h(
+        "div",
+        { class: "frontline-callout frontline-callout--ai" },
+        h(
+          "p",
+          null,
+          h("strong", null, "AI-assisted recommendation. "),
+          `Computed from your wizard answers using Microsoft public list prices (last verified ${PRICING_LAST_VERIFIED}). Always confirm CSP / EA / partner-channel pricing with your Microsoft account team.`
+        )
+      ),
+      specialtyNote,
+      privAdminLens,
+      h("h3", { class: "frontline-calc__heading" }, "Cost breakdown"),
+      h(
+        "table",
+        { class: "frontline-calc" },
+        h(
+          "thead",
+          null,
+          h(
+            "tr",
+            null,
+            h("th", null, "Line item"),
+            h("th", { class: "frontline-calc__cost" }, "USD / user / month"),
+            h("th", null, "Notes")
+          )
+        ),
+        h("tbody", null, lineRows, totalRow)
+      ),
+      rec.alternatives.length > 0
+        ? h(
+            "div",
+            null,
+            h("h3", { class: "frontline-calc__heading" }, "Compare against alternatives (visual)"),
+            h(
+              "table",
+              { class: "frontline-compare result-pricing__chart" },
+              h(
+                "thead",
+                null,
+                h(
+                  "tr",
+                  null,
+                  h("th", null, "Option"),
+                  h("th", null, "Cost (visual bar)"),
+                  h("th", null, "Delta"),
+                  h("th", null, "Notes")
+                )
+              ),
+              h("tbody", null, chartRows)
+            )
+          )
+        : "",
+      h("h3", { class: "frontline-calc__heading" }, "Why this recommendation (AI reasoning)"),
+      h("ul", { class: "frontline-reasoning" }, reasoningList),
+      h(
+        "p",
+        { class: "frontline-callout__source" },
+        "Canonical sources: ",
+        h(
+          "a",
+          { href: MICROSOFT_365_ENTERPRISE_PRICING.url, target: "_blank", rel: "noopener" },
+          "Enterprise pricing"
+        ),
+        " · ",
+        h(
+          "a",
+          { href: MICROSOFT_365_FRONTLINE_PRICING.url, target: "_blank", rel: "noopener" },
+          "Frontline pricing"
+        ),
+        " · ",
+        h(
+          "a",
+          { href: MODERN_WORK_PLAN_COMPARISON.url, target: "_blank", rel: "noopener" },
+          "Modern Work comparison PDF"
+        ),
+        " · ",
+        h(
+          "a",
+          { href: MICROSOFT_365_LICENSING_DOCS.url, target: "_blank", rel: "noopener" },
+          "M365 Licensing hub"
+        ),
+        "."
+      )
+    );
   }
 
   /** Build the dynamic wizard-result HTML injected into the result card. */
@@ -1903,6 +2190,10 @@ class Assessment {
       })
       .join("\n");
     const frontlineBlock = node.computed === "frontline" ? this.buildFrontlineSummaryBlock() : "";
+    const pricingBlock =
+      node.result && node.computed !== "frontline"
+        ? this.buildResultPricingSummaryBlock(this.state.currentId)
+        : "";
     const lines: (string | false)[] = [
       "M365 Profiles recommendation",
       "===========================",
@@ -1913,6 +2204,7 @@ class Assessment {
       !!node.sub && node.sub,
       "",
       !!frontlineBlock && frontlineBlock,
+      !!pricingBlock && pricingBlock,
       !!node.bullets?.length &&
         ["Key points:", ...node.bullets.map((b) => `  • ${b}`), ""].join("\n"),
       "Your answers:",
@@ -1924,6 +2216,77 @@ class Assessment {
       `Generated by m365-profiles ${APP_VERSION} — unofficial helper, not Microsoft guidance.`,
     ];
     return lines.filter((l): l is string => Boolean(l)).join("\n");
+  }
+
+  /** Plain-text rendering of the per-result static pricing recommendation
+   *  for inclusion in the clipboard summary + PDF handout. Mirrors
+   *  `buildFrontlineSummaryBlock` for non-frontline result nodes. Returns
+   *  an empty string when the result has no RESULT_PRICING entry. */
+  private buildResultPricingSummaryBlock(resultId: string): string {
+    const rec = getResultPricing(resultId);
+    if (!rec) return "";
+    const isPrivAdmin = this.isPrivilegedAdminProfile();
+    const recommendedTotal = sumLines(rec.lines);
+    const hasNumericTotal = rec.lines.some((l) => l.cost !== null);
+    const lines: string[] = [
+      "AI-assisted pricing recommendation",
+      "---------------------------------",
+      `Recommended posture:  ${rec.recommendationLabel}`,
+    ];
+    if (hasNumericTotal) {
+      lines.push(
+        `Total list price:     ${formatPrice(recommendedTotal)} / user / month (USD, annual commitment)`
+      );
+    } else {
+      lines.push(`Total list price:     specialty SKU — confirm with your Microsoft account team`);
+    }
+    lines.push(`Pricing last verified: ${PRICING_LAST_VERIFIED}`);
+    if (rec.specialty) {
+      lines.push(
+        `Note: this SKU does not have a flat public per-user / month list price (Education / Government / Nonprofit / E7 Frontier Suite / MAU-based External ID).`
+      );
+    }
+    lines.push("");
+    lines.push("Cost breakdown:");
+    for (const line of rec.lines) {
+      const costStr = line.cost === null ? "—" : formatPrice(line.cost);
+      const note = line.note ? `  — ${line.note}` : "";
+      lines.push(`  - ${line.label}: ${costStr}${note}`);
+    }
+    if (hasNumericTotal && rec.lines.length > 1) {
+      lines.push(`  = TOTAL: ${formatPrice(recommendedTotal)} / user / month`);
+    }
+    lines.push("");
+    if (rec.alternatives.length > 0) {
+      lines.push("Compare against alternatives:");
+      lines.push(
+        `  ★ ${rec.recommendationLabel}: ${hasNumericTotal ? formatPrice(recommendedTotal) : "n/a"}  (Recommended)`
+      );
+      for (const alt of rec.alternatives) {
+        const costStr = alt.cost === null ? "specialty pricing" : formatPrice(alt.cost);
+        const delta =
+          alt.cost === null
+            ? "contact account team"
+            : hasNumericTotal
+              ? this.formatDelta(alt.cost, recommendedTotal)
+              : "—";
+        lines.push(`    ${alt.label}: ${costStr} — ${delta}`);
+        if (alt.note) lines.push(`      ${alt.note}`);
+      }
+      lines.push("");
+    }
+    lines.push("Why this recommendation (AI reasoning):");
+    for (const r of rec.reasoning) lines.push(`  • ${r}`);
+    lines.push("");
+    if (isPrivAdmin && rec.privilegedAdminLens) {
+      lines.push("Privileged-admin lens:");
+      lines.push(`  ${rec.privilegedAdminLens}`);
+      lines.push(
+        `  Full guide: Why privileged (dedicated) admin accounts? (info_privileged_admins)`
+      );
+      lines.push("");
+    }
+    return lines.join("\n");
   }
 
   /** Plain-text rendering of the frontline computed recommendation for
@@ -2107,9 +2470,15 @@ class Assessment {
       const { buildHandoutPDF } = await import("./pdf");
       // For computed results (e.g. frontline wizard) prepend the dynamic
       // recommendation as additional paragraphs so the handout matches the
-      // on-screen card.
-      const extraParagraphs =
+      // on-screen card. For all other result nodes, prepend the static
+      // result-level pricing recommendation from RESULT_PRICING.
+      const frontlineExtra =
         node.computed === "frontline" ? this.buildFrontlineSummaryBlock().split("\n") : [];
+      const pricingExtra =
+        node.result && node.computed !== "frontline"
+          ? this.buildResultPricingSummaryBlock(this.state.currentId).split("\n")
+          : [];
+      const extraParagraphs = [...frontlineExtra, ...pricingExtra].filter((l) => l.length > 0);
       await buildHandoutPDF({
         profile: this.state.profile,
         title: node.title ?? "Recommendation",

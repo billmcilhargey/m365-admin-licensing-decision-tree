@@ -451,3 +451,99 @@
   color: inherit;
   text-decoration: underline;
 }
+
+/* Result-pricing panel — static per-result cost breakdown + comparison bar
+ * chart + AI reasoning + privileged-admin lens. Reuses .frontline-computed,
+ * .frontline-callout, .frontline-calc, .frontline-compare, .frontline-reasoning
+ * for layout consistency with the frontline computed wizard result. */
+.result-pricing {
+  /* No additional margin — inherits .frontline-computed gap. */
+}
+/* Privileged-admin lens callout — distinct accent so it reads as
+ * cross-reference, not advice. Only shown when the user picked the
+ * privileged-admin profile at the start. */
+.result-pricing__priv-admin {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+:root[data-theme="dark"] .result-pricing__priv-admin {
+  background: #2a1f0a;
+  border-left-color: #f59e0b;
+}
+.result-pricing__priv-admin a {
+  color: var(--ms-blue);
+  text-decoration: underline;
+  font-weight: 600;
+}
+:root[data-theme="dark"] .result-pricing__priv-admin a {
+  color: #93c5fd;
+}
+/* Specialty-priced SKUs (E7, A/G-SKUs, Nonprofit, External ID) — render
+ * "—" in cost cells instead of $0 to be honest about no flat list price. */
+.result-pricing__cost-na {
+  color: var(--color-muted, #6b7280);
+  font-style: italic;
+}
+/* CSS-only bar chart for the comparison table. The bar div sits as a
+ * background layer in the chart cell with width proportional to cost /
+ * maxCost. The numeric label sits on top via z-index. */
+.result-pricing__chart .result-pricing__chart-cell {
+  position: relative;
+  min-width: 14rem;
+  padding-right: 1rem;
+}
+.result-pricing__chart-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 1.6rem;
+}
+.result-pricing__bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    var(--ms-blue-lighter, #e6f1ff) 0%,
+    var(--ms-blue-light, #c7dfff) 100%
+  );
+  border-radius: 0.25rem;
+  z-index: 0;
+  transition: width 0.3s ease;
+}
+.result-pricing__bar--rec {
+  background: linear-gradient(90deg, #d1fae5 0%, #6ee7b7 100%);
+}
+:root[data-theme="dark"] .result-pricing__bar {
+  background: linear-gradient(90deg, #1e3a5f 0%, #2563eb 100%);
+  opacity: 0.55;
+}
+:root[data-theme="dark"] .result-pricing__bar--rec {
+  background: linear-gradient(90deg, #064e3b 0%, #047857 100%);
+  opacity: 0.75;
+}
+.result-pricing__bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 0.55rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text, #111827);
+}
+:root[data-theme="dark"] .result-pricing__bar-label {
+  color: #f3f4f6;
+}
+
+@media print {
+  /* Print fallback — bars use background-color so browsers that drop
+   * gradients in print still render a flat shaded bar. */
+  .result-pricing__bar {
+    background: #e6f1ff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .result-pricing__bar--rec {
+    background: #d1fae5 !important;
+  }
+}

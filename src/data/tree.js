@@ -21,6 +21,11 @@
 //   Compliance, eDiscovery (Premium), Audit (Premium). The full 12-card
 //   Purview breakdown lives inline on `q_purview_e5` (the upstream umbrella);
 //   the breadth-question version is a focused recap, not a duplicate.
+//
+// INTUNE_SUITE_MINI_CARDS — used by `q_intune_suite` (admin's own Intune Suite
+//   trigger check) and `q_intune_breadth` (bundle-vs-standalone follow-up).
+//   Six cards: Remote Help (unique helper+sharer rule), EPM, Tunnel for MAM
+//   (Suite-only, no standalone), Cloud PKI, EAM, Advanced Analytics.
 // ---------------------------------------------------------------------------
 
 const DEFENDER_SUITE_MINI_CARDS = [
@@ -114,22 +119,30 @@ const DEFENDER_SUITE_MINI_CARDS = [
   },
   {
     name: "Microsoft Defender XDR (correlation and incident layer)",
-    sku: "Entitled wherever at least one of the four components above is licensed for this user; no separate per-user SKU",
+    sku: "Auto-entitled by any qualifying license; no separate per-user SKU",
     scope: "tenant-wide-scopeable",
     scopeNote:
-      "Tenant-level entitlement layered on top of the four components. Defender XDR is the cross-workload correlation, incident grouping, advanced hunting (KQL), automated investigation, and unified portal experience at security.microsoft.com. It does not have a separate per-user SKU. Customers gain Defender XDR automatically when they license any of Defender for Office 365 P2, Defender for Endpoint P2, Defender for Identity, or Defender for Cloud Apps \u2014 and visibility / response scope for any given user is limited to whichever of those four components are licensed for that user, mailbox, or device.",
+      "Tenant-level entitlement, layered. Defender XDR is the cross-workload correlation, incident grouping, advanced hunting (KQL over 30 days of raw alert + signal data), automated investigation & response (AIR), automatic attack disruption, threat analytics, and unified portal experience at security.microsoft.com. There is no separate per-user Defender XDR SKU \u2014 customers are entitled automatically when at least one qualifying license is present in the tenant. Per Microsoft's official prerequisites, qualifying licenses include: M365 E5 / A5, M365 E3 + Defender Suite add-on, M365 E3 + EMS E5 add-on, M365 A3 + M365 A5 Security add-on, M365 Business Premium, Defender for Business, Windows 10/11 Enterprise E5 / A5, EMS E5 / A5, Office 365 E5 / A5, and any of the four per-user component SKUs (Defender for Endpoint P2, Defender for Office 365 P2, Defender for Identity, Defender for Cloud Apps). Crucially: Plan 1 versions (Defender for Endpoint P1, Defender for Office 365 P1, Defender for Business basic-only) do NOT qualify \u2014 they surface basic telemetry in the Defender portal but no XDR correlation / AIR / advanced hunting. Per-user visibility scope follows the underlying components: a SOC analyst's hunt only sees signals from identities / mailboxes / devices that hold qualifying licenses, and two XDR-tier features have a stricter dependency \u2014 Automatic Attack Disruption and Threat Analytics require Defender for Endpoint Plan 2 specifically.",
     inScopeMeans:
-      "this user has at least one of the four underlying Defender components licensed for them \u2014 Defender XDR is automatically entitled and correlates incidents across the components they hold.",
+      "this user holds at least one qualifying license (any M365 E5 / A5 family SKU, M365 Business Premium, Defender for Business, E3 + Defender Suite add-on, EMS E5, O365 E5, or any of the four P2-tier Defender component SKUs); Defender XDR is automatically entitled for them with no extra cost, and incidents correlate across whichever components they hold.",
     notInScopeMeans:
-      "this user holds none of the four underlying Defender components; Defender XDR has nothing to correlate for them.",
+      "this user holds no qualifying license \u2014 only Plan 1 / entry-level Defender (e.g., M365 E3 base with DfE P1 + DfO P1 only) or no Defender entitlement at all (Exchange Online Plan 1 standalone, M365 Apps for Business, F1 with no DfE assignment). They have nothing for Defender XDR to correlate beyond basic component telemetry.",
     examples: [
-      "Yes (licensed correctly): this user holds M365 E5, so all four Defender workloads light up in the unified Defender XDR portal and incidents span email + endpoint + identity for them.",
-      "Yes (Defender Suite add-on path): this user holds M365 E3 + Defender Suite add-on \u2014 same Defender XDR experience, layered on the E3 base.",
-      "No (current licence already covers it): this user holds M365 E3 (bundles Defender for Endpoint Plan 1 only); incidents from their device appear in the Defender portal but without P2 advanced hunting / AIR / cross-workload correlation."
+      "Yes (E5 path): this user holds M365 E5; all four Defender components light up in the unified Defender portal and incidents span email + endpoint + identity + cloud apps for them. Attack disruption and threat analytics fully available (E5 includes DfE P2).",
+      "Yes (E3 + Defender Suite add-on): this user holds M365 E3 + Microsoft Defender Suite add-on \u2014 functionally equivalent XDR experience to E5, layered on the E3 base.",
+      "Yes (SMB path \u2014 Business Premium / Defender for Business): this user holds M365 Business Premium (bundles Defender for Business). Defender XDR is entitled; correlation covers Defender for Business endpoint signals plus any Defender for Office 365 P1 / P2 they hold. Attack disruption requires explicitly uplifting to Defender for Endpoint P2 (Business Premium ships DfB, not full DfE P2).",
+      "Yes (partial \u2014 single-component standalone uplift): this user holds M365 E3 + Defender for Endpoint Plan 2 standalone add-on (no Defender Suite). XDR is entitled, but their correlation is limited to endpoint signals \u2014 their mailbox and identity signals stay at P1 / Entra-Free tier and are NOT pulled into XDR incidents.",
+      "Mixed-license tenant: 200 users on M365 E5, 800 users on M365 E3 (no add-on). Defender XDR is enabled tenant-wide because qualifying licenses exist. The 200 E5 users contribute full cross-workload signals; the 800 E3 users contribute only DfE P1 device telemetry (visible in Device Inventory but not in XDR incident correlation, AIR, or advanced hunting joins on those identities). A SOC analyst can only USE the XDR portal if THEY personally hold a qualifying license (typically E5).",
+      "No (only Plan 1 components): this user holds M365 E3 with no Defender add-on. They have DfO P1 (anti-malware / Safe Links / Safe Attachments) and DfE P1 (next-gen AV) only. Neither P1 SKU qualifies for XDR \u2014 they can see basic component telemetry in security.microsoft.com but get no incident correlation, no advanced hunting, no AIR, no attack disruption.",
+      "No (no Defender entitlement at all): this user holds Exchange Online Plan 1 standalone, or M365 Apps for Business, or an F1 frontline assignment with no Defender for Endpoint allocation. They have zero qualifying components \u2014 Defender XDR has nothing to correlate, surface, or hunt for them."
     ],
     docs: [
-      ["What is Microsoft Defender XDR", "https://learn.microsoft.com/defender-xdr/microsoft-365-defender"],
-      ["Defender XDR prerequisites and licensing", "https://learn.microsoft.com/defender-xdr/prerequisites"]
+      ["Microsoft Defender XDR prerequisites \u2014 official licensing list", "https://learn.microsoft.com/defender-xdr/prerequisites#licensing-requirements"],
+      ["What is Microsoft Defender XDR (correlates only licensed and provisioned signals)", "https://learn.microsoft.com/defender-xdr/microsoft-365-defender"],
+      ["Defender for Office 365 Plan 1 vs Plan 2 cheat sheet (only P2 qualifies for XDR)", "https://learn.microsoft.com/defender-office-365/mdo-about#defender-for-office-365-plan-1-vs-plan-2-cheat-sheet"],
+      ["Defender for Endpoint Plan 1 vs Plan 2 (only P2 qualifies for XDR + Attack Disruption)", "https://learn.microsoft.com/defender-endpoint/defender-endpoint-plan-1-2"],
+      ["Configure automatic attack disruption (requires DfE P2)", "https://learn.microsoft.com/defender-xdr/configure-attack-disruption"],
+      ["Microsoft Product Terms \u2014 Microsoft 365 Online Services", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
     ]
   }
 ];
@@ -215,6 +228,144 @@ const PURVIEW_E5_BREADTH_MINI_CARDS = [
       ["Audit (Premium) service description", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-365-tenantlevel-services-licensing-guidance#microsoft-purview-audit-premium"],
       ["Auditing solutions overview", "https://learn.microsoft.com/purview/audit-solutions-overview"],
       ["Manage audit log retention policies", "https://learn.microsoft.com/purview/audit-log-retention-policies"]
+    ]
+  }
+];
+
+// INTUNE_SUITE_MINI_CARDS — used by `q_intune_suite` (admin's own Intune Suite
+//   trigger check) and `q_intune_breadth` (the "do you need 2+ Suite features?"
+//   bundle-vs-standalone follow-up). Six cards: Remote Help (the unique
+//   helper-AND-sharer rule), Endpoint Privilege Management, Microsoft Tunnel
+//   for MAM, Microsoft Cloud PKI, Enterprise App Management, Advanced Endpoint
+//   Analytics. Every Intune Suite add-on requires Microsoft Intune Plan 1 or
+//   Plan 2 as a prerequisite base license — the Suite is layered on top, not
+//   a replacement. Tunnel for MAM has no standalone SKU (Suite-only); the
+//   other five are also sold as per-user standalone add-ons.
+const INTUNE_SUITE_MINI_CARDS = [
+  {
+    name: "Remote Help (helper + sharer license rule)",
+    sku: "Microsoft Intune Suite / Remote Help standalone add-on (per-user). Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user, with a UNIQUE dual-licensing rule that does not exist elsewhere in the Intune Suite. Microsoft's Remote Help planning documentation states verbatim under Prerequisites: 'A Remote Help license for everyone targeted to use the service \u2014 both helpers (IT support workers) and sharers (users).' This means a Remote Help / Intune Suite license must be assigned to BOTH (a) the admin / helpdesk operator's own user account when they run support sessions AND (b) every end-user account whose device receives a session. Intune RBAC role assignment (Help Desk Operator built-in role, or a custom role with the Remote Help permissions) controls WHAT the helper can do (view only, full control, elevation, unattended on Android) \u2014 but RBAC is not a substitute for the per-user license. Both must be in the same Entra tenant; cross-tenant Remote Help is not supported.",
+    inScopeMeans:
+      "this user is either (a) a helpdesk / IT support worker who will RUN Remote Help sessions from the Intune admin center (helper role), OR (b) an end user whose device may RECEIVE a Remote Help session (sharer role).",
+    notInScopeMeans:
+      "this user is neither a helper nor a sharer \u2014 they neither run Remote Help sessions nor have a device that receives them.",
+    examples: [
+      "Yes (helper \u2014 admin's own account): Helpdesk admin holds Help Desk Operator role and uses Remote Help from intune.microsoft.com to take full control of a struggling user's laptop. License the admin's own account with Remote Help / Intune Suite, even though they themselves aren't the end user of the protected workload.",
+      "Yes (sharer \u2014 end user): Field engineer's enrolled Windows laptop receives a Remote Help session from IT. License the engineer's account.",
+      "Yes (under-licensed \u2014 needs uplift): Tenant has Intune Plan 1 only; admin tries to launch Remote Help and the session fails with a licensing error. Buy Remote Help standalone or Intune Suite for the admin (and every sharer).",
+      "No: SOC analyst who never runs Remote Help, and whose device is supported by a separate helpdesk where the analyst themselves is just a sharer-eligible end user (no helper role assignment). They still need the license as a sharer if anyone might run a session against their device."
+    ],
+    docs: [
+      ["Remote Help \u2014 plan (Prerequisites: license required for both helpers and sharers)", "https://learn.microsoft.com/intune/remote-help/plan#prerequisites"],
+      ["Remote Help overview", "https://learn.microsoft.com/intune/remote-help/remote-help"],
+      ["Intune RBAC for Remote Help (Help Desk Operator built-in role)", "https://learn.microsoft.com/intune/remote-help/plan#role-based-access-control-rbac"]
+    ]
+  },
+  {
+    name: "Endpoint Privilege Management (EPM)",
+    sku: "Microsoft Intune Suite / EPM standalone add-on (per-user). Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user. EPM lets standard users elevate approved applications without holding local administrator rights on the device. License the USER whose elevation requests will be evaluated by an EPM elevation rule \u2014 the agent on their device is what consumes the entitlement, but the license is attached to the user identity. An Intune admin who AUTHORS elevation rules but is not themselves a standard user whose elevations are governed does NOT need an EPM license. EPM standalone exists for tenants that want just this feature without the rest of the Suite.",
+    inScopeMeans:
+      "this user signs in as a standard (non-admin) user on a Windows device that has the EPM agent and is targeted by an EPM elevation rule (e.g., approved apps allowed to elevate without UAC admin prompt).",
+    notInScopeMeans:
+      "this user either (a) doesn't use a Windows device with EPM enabled, OR (b) only OPERATES the EPM policy authoring UI in the Intune admin center under an Intune Administrator role without their own device being in scope of any elevation rule.",
+    examples: [
+      "Yes (end user): Standard-user developer needs to install npm packages that require admin elevation; their device is in an EPM elevation policy for approved tools. License their account.",
+      "Yes (admin's own device): Intune admin's own laptop is a standard-user device covered by an EPM elevation rule for diagnostic tools. License the admin's account.",
+      "No (admin operates the policy authoring UI only): Intune admin authors EPM elevation rules for 5,000 standard users but signs in to their own admin workstation as a local admin (no EPM elevation rule applies). No EPM license needed for the admin themselves \u2014 the 5,000 users still each need one."
+    ],
+    docs: [
+      ["Endpoint Privilege Management overview", "https://learn.microsoft.com/intune/epm/overview"],
+      ["EPM licensing requirements", "https://learn.microsoft.com/intune/epm/epm-overview#licensing-requirements"]
+    ]
+  },
+  {
+    name: "Microsoft Tunnel for MAM",
+    sku: "Microsoft Intune Suite ONLY (per-user) \u2014 no standalone SKU. Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user. Microsoft Tunnel for MAM extends the Microsoft Tunnel VPN gateway to UNMANAGED iOS and Android devices that are not enrolled in Intune MDM but are protected by Mobile Application Management (MAM) policies (e.g., personal / BYOD devices running Outlook + Edge with App Protection Policies). License the USER whose unmanaged device runs the Tunnel for MAM client to reach corporate resources. The base Microsoft Tunnel for ENROLLED devices is part of Intune Plan 1 / Plan 2 itself \u2014 only the MAM extension requires Suite. Tunnel for MAM is uniquely Suite-only; there is no Tunnel-MAM standalone add-on.",
+    inScopeMeans:
+      "this user uses an UNMANAGED (Entra-registered only, not enrolled) iOS or Android device running an MAM-protected app (Outlook, Edge, Teams, Word, Excel, etc.) that needs to reach internal corporate resources through Microsoft Tunnel.",
+    notInScopeMeans:
+      "this user either (a) doesn't use Tunnel at all, OR (b) only uses Tunnel from FULLY ENROLLED iOS / Android / Windows / macOS devices (managed Tunnel, included in Intune Plan 1 / Plan 2, no Suite uplift needed).",
+    examples: [
+      "Yes: Consultant uses Outlook on their personal iPhone (MAM-protected, not enrolled) and needs to reach an internal SharePoint server through Microsoft Tunnel. License them for Intune Suite.",
+      "Yes (under-licensed \u2014 needs uplift): Tenant deploys Tunnel for MAM to 200 BYOD users without buying Intune Suite. Connections fail at the licensing-check stage. Uplift the 200 users to Intune Suite (no standalone available).",
+      "No (managed device path): Field engineer uses Tunnel from their fully-enrolled corporate iPhone \u2014 that's the base Microsoft Tunnel feature included in Intune Plan 1 / Plan 2, no Suite needed.",
+      "No: this user doesn't use Tunnel of any kind."
+    ],
+    docs: [
+      ["Microsoft Tunnel for MAM overview (Suite-only)", "https://learn.microsoft.com/intune/device-security/microsoft-tunnel/mam"],
+      ["Microsoft Tunnel base (for enrolled devices, included in Intune Plan 1/2)", "https://learn.microsoft.com/intune/protect/microsoft-tunnel-overview"]
+    ]
+  },
+  {
+    name: "Microsoft Cloud PKI",
+    sku: "Microsoft Intune Suite / Cloud PKI standalone add-on (per-user). Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user. Microsoft Cloud PKI is a managed certificate authority that issues, renews, and revokes user / device certificates for Intune-managed endpoints, replacing legacy on-prem AD CS + NDES + Intune Connector for SCEP / PKCS deployments. License the USER whose Intune-managed device receives a certificate from Cloud PKI \u2014 e.g., for Wi-Fi 802.1X, VPN, Entra ID certificate-based authentication, S/MIME mail signing, or app authentication. Cloud PKI standalone exists for tenants that only want managed PKI without the rest of the Suite.",
+    inScopeMeans:
+      "this user has an Intune-managed device that is targeted by a SCEP or PKCS certificate profile pointing to a Cloud PKI issuing CA (for Wi-Fi, VPN, CBA, S/MIME, or app auth).",
+    notInScopeMeans:
+      "this user either (a) has no device-issued certificates from Cloud PKI, OR (b) receives certificates from an on-prem ADCS + NDES + Intune Connector deployment instead, OR (c) only ADMINISTERS Cloud PKI CA configurations in the Intune admin center under an Intune Administrator role without holding any Cloud-PKI-issued certificate themselves.",
+    examples: [
+      "Yes: Marketing user's enrolled Windows laptop receives an 802.1X authentication certificate from a Cloud PKI issuing CA so it can connect to corporate Wi-Fi. License them for Cloud PKI standalone or Intune Suite.",
+      "Yes (admin's own device): Intune admin's enrolled MacBook is configured with a Cloud-PKI-issued certificate for Entra CBA sign-in. License the admin's account.",
+      "No (admin operates Cloud PKI config only): Intune admin onboards a Cloud PKI issuing CA and authors certificate profiles for 10,000 users, but their own admin workstation uses a legacy ADCS-issued certificate. No Cloud PKI license needed on the admin's account \u2014 the 10,000 user-devices still each need one.",
+      "No (legacy on-prem path): User's device gets certificates from a SCEP / PKCS profile pointing at ADCS + NDES + Intune Connector. No Cloud PKI license required."
+    ],
+    docs: [
+      ["Microsoft Cloud PKI overview", "https://learn.microsoft.com/intune/cloud-pki/overview"],
+      ["Cloud PKI prerequisites and licensing", "https://learn.microsoft.com/intune/cloud-pki/quickstart-create-pki"]
+    ]
+  },
+  {
+    name: "Enterprise App Management (EAM)",
+    sku: "Microsoft Intune Suite / EAM standalone add-on (per-user). Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user. Enterprise App Management provides a Microsoft-hosted Enterprise App Catalog of pre-packaged Win32 applications (and select macOS apps) with built-in install commands, detection rules, and \u2014 critically \u2014 auto-update detection / update push from the Intune admin center. It replaces the manual Win32 app packaging + repackaging cycle for the catalog's covered apps. License the USER whose Intune-managed device receives apps from the Enterprise App Catalog with EAM update tracking enabled. An Intune admin who ADMINISTERS the catalog (selects apps, configures deployments) but whose own device doesn't receive EAM-managed apps does not need an EAM license.",
+    inScopeMeans:
+      "this user has an Intune-managed Windows / macOS device that is deployed any application from the Enterprise App Catalog with EAM auto-update detection enabled (so Intune tracks newer versions in the catalog and pushes updates).",
+    notInScopeMeans:
+      "this user either (a) only receives manually-packaged Win32 / DMG apps (legacy path, no EAM), OR (b) only ADMINISTERS the Enterprise App Catalog in the Intune admin center under an Intune Administrator role without their own device being deployed any EAM-managed app.",
+    examples: [
+      "Yes (end user): Engineer's enrolled Windows laptop receives Zoom, 7-Zip, and Notepad++ from the Enterprise App Catalog with auto-update tracking enabled. License them for EAM standalone or Intune Suite.",
+      "Yes (admin's own device): Intune admin's enrolled laptop is targeted by an EAM-managed deployment of Slack. License the admin's account.",
+      "No (admin curates the catalog only): Intune admin builds the catalog of 50 EAM apps and assigns them to 8,000 users, but their own admin workstation uses legacy MSI / Win32 packages with no EAM auto-update tracking. No EAM license needed on the admin's account \u2014 the 8,000 users still each need one.",
+      "No (legacy Win32 path): User's device gets apps via classic Win32 .intunewin packages or LOB apps with no catalog auto-update tracking. No EAM license required."
+    ],
+    docs: [
+      ["Enterprise App Management overview", "https://learn.microsoft.com/intune/app-management/deployment/enterprise-app-management"],
+      ["EAM licensing requirements", "https://learn.microsoft.com/intune/app-management/deployment/enterprise-app-management#licensing-requirements"]
+    ]
+  },
+  {
+    name: "Advanced Endpoint Analytics",
+    sku: "Microsoft Intune Suite / Advanced Analytics standalone add-on (per-user). Requires Microsoft Intune Plan 1 or Plan 2 base.",
+    scope: "per-user",
+    scopeNote:
+      "Per-user. Advanced Endpoint Analytics (now branded as 'Advanced Analytics' in the Intune admin center) extends the base Endpoint Analytics product (included in Intune Plan 1) with anomaly detection on device health metrics, a per-device timeline view showing changes / events over time, proactive remediation script scheduling (run a custom remediation when a detection script flags a problem), advanced battery health insights, and richer Windows reliability reports. License the USER whose Intune-managed device is enrolled in Advanced Analytics scoring / scripting. Plain Endpoint Analytics (boot performance, anti-malware overhead aggregates) is base Intune and free. Advanced Analytics standalone exists for tenants that only want this feature.",
+    inScopeMeans:
+      "this user has an Intune-managed Windows device that is in scope of an Advanced Analytics proactive remediation script, has its anomaly-detection data scored, or whose device timeline is viewed by an admin in the Advanced Analytics workspace.",
+    notInScopeMeans:
+      "this user either (a) only contributes data to base Endpoint Analytics (free, included), OR (b) only ADMINISTERS Advanced Analytics scripts and views aggregate data without their own device being scored / remediated.",
+    examples: [
+      "Yes (end user): Developer's enrolled Windows laptop is targeted by a proactive remediation script (detect outdated WSL, remediate with reinstall). License them for Advanced Analytics standalone or Intune Suite.",
+      "Yes (admin's own device): Intune admin's enrolled laptop is in the Advanced Analytics anomaly-detection cohort \u2014 their device timeline is monitored. License the admin's account.",
+      "No (admin views aggregate base Endpoint Analytics only): Intune admin checks Endpoint Analytics scores for the fleet but their own device is excluded from Advanced Analytics scoring / scripting. No Advanced Analytics license needed on the admin's account.",
+      "No: this user's device only contributes to base Endpoint Analytics (boot performance / anti-malware overhead aggregates), no anomaly detection or proactive remediation."
+    ],
+    docs: [
+      ["Advanced Endpoint Analytics overview", "https://learn.microsoft.com/intune/advanced-analytics/overview"],
+      ["Intune advanced capabilities (Plan 2 / Suite / standalone matrix)", "https://learn.microsoft.com/intune/fundamentals/advanced-capabilities"]
     ]
   }
 ];
@@ -397,7 +548,388 @@ export const TREE = {
     ],
     actions: [
       { label: "Continue with a privileged admin →", target: "start", tone: "primary" },
+      { label: "See the full admin capability map (free vs P1 vs P2 vs E5)", target: "info_admin_capability_map", tone: "secondary" },
       { label: "I have a primary account instead", target: "result_primary_account", tone: "secondary" },
+      { label: "← Back to account-scope choice", target: "start_choice", tone: "secondary" }
+    ]
+  },
+  info_admin_capability_map: {
+    info: true,
+    badge: "Capability map",
+    badgeClass: "badge-info",
+    title: "Privileged admin capability map — what's free, what's P1, what's P2, what's E5",
+    sub: "Cross-referenced against Microsoft Learn AND m365maps.com — built so you don't over-license a dedicated admin account.",
+    paragraphs: [
+      "This card answers the question we hear most often: 'My privileged admin account doesn't have a mailbox and doesn't use Office — but it DOES manage Conditional Access, MFA, Intune, Defender, and Purview. What license does it need?' The short answer is almost always 'nothing more than Entra ID Free' — as long as the admin only CONFIGURES things rather than being IN SCOPE of policies that target them. The long answer is below, organized by capability category.",
+      "Each capability is tagged with (a) the license the admin's OWN account needs to USE the feature, (b) the Microsoft Learn documentation that defines that requirement, and (c) the m365maps.com visual map that shows where the feature is bundled. Where a capability is role-gated and free to configure but per-user to consume, both rows are called out. The walk-through tree below uses these same definitions.",
+      "Three license tiers cover almost everything: Entra ID Free (included with every M365 tenant — no extra purchase), Entra ID P1 (bundled in M365 E3 / E5 / Business Premium / A3 / A5 / G3 / G5, sold standalone), and Entra ID P2 (bundled in M365 E5 / A5 / G5 / Entra Suite, sold standalone). M365 E5 layers Defender Suite + Purview E5 + Entra ID P2 on top of E3. The catch is that Microsoft Product Terms target the licence at the USER WHO BENEFITS — for an admin, 'benefits' means 'is in the policy's user scope', not 'opens the admin portal'."
+    ],
+    breakdownIntro: "Each row is one capability. The 'Scope' badge tells you whether the admin's own account needs a license to USE the capability (per-user / per-mailbox / per-device) or whether the capability is tenant-wide / role-gated (admin operates it free, but every USER it protects is licensed separately). Click through to Microsoft Learn for the technical doc and to m365maps.com for the visual licensing map.",
+    productBreakdown: [
+      {
+        name: "Conditional Access — POLICY CONFIGURATION",
+        sku: "Entra ID Free (role-gated: Conditional Access Administrator)",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Configuring CA policies in the Entra admin center is role-gated, not license-gated. Any user with the Conditional Access Administrator (or Security Administrator) role can author policies on Entra ID Free.",
+        inScopeMeans: "the admin OPENS the Entra portal and creates / edits / disables Conditional Access policies. Role membership is the only requirement.",
+        notInScopeMeans: "the admin is in the user/group scope of a CA policy themselves — that's the P1 row below, not this one.",
+        examples: [
+          "Free: Admin under the Conditional Access Administrator role authors policies for 50,000 users. No license required on the admin.",
+          "Not free: Admin's account is in the user scope of a CA policy that requires phishing-resistant MFA for admins — that's the P1 row."
+        ],
+        docs: [
+          ["Conditional Access Administrator role", "https://learn.microsoft.com/entra/identity/role-based-access-control/permissions-reference#conditional-access-administrator"],
+          ["Conditional Access overview", "https://learn.microsoft.com/entra/identity/conditional-access/overview"]
+        ]
+      },
+      {
+        name: "Conditional Access — USER IN POLICY SCOPE",
+        sku: "Entra ID P1 (per-user, bundled in M365 E3 / E5 / Business Premium / EMS E3+)",
+        scope: "per-user",
+        scopeNote: "Every user TARGETED by a CA policy (included in user/group/role scope and not excluded) must have Entra ID P1 or higher assigned. Microsoft's CA licensing FAQ is explicit on this.",
+        inScopeMeans: "the admin's own account is in the included scope of at least one CA policy (and not excluded). This is the most-missed admin licensing trigger.",
+        notInScopeMeans: "the admin is a break-glass / emergency-access account explicitly excluded from every CA policy.",
+        examples: [
+          "Per-user: Tenant has CA policy 'Require MFA for all directory roles' that targets the Global Administrators role group. Admin holds GA → P1 required on the admin.",
+          "Not per-user: Admin's account is excluded from every CA policy (break-glass pattern). Stays on Entra ID Free."
+        ],
+        docs: [
+          ["CA licensing requirements (per-user-in-scope)", "https://learn.microsoft.com/entra/identity/conditional-access/overview#license-requirements"],
+          ["Emergency access accounts — recommended CA exclusion", "https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access"],
+          ["M365 Maps — Entra ID P1", "https://m365maps.com/Microsoft%20Entra%20ID%20P1.htm"]
+        ]
+      },
+      {
+        name: "Security Defaults",
+        sku: "Entra ID Free (tenant-wide on/off; mutually exclusive with Conditional Access)",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Security Defaults are tenant-wide and free. When enabled, they force Authenticator MFA enrollment for all users, block legacy auth, and require MFA for privileged actions — without any P1 license.",
+        inScopeMeans: "the tenant has Security Defaults enabled — every user (including the admin) gets baseline MFA enforcement at no licensing cost.",
+        examples: [
+          "Free: New tenant under 300 seats uses Security Defaults to enforce MFA and block legacy auth. No P1 / E3 / Business Premium needed for the admin's account."
+        ],
+        docs: [
+          ["Security Defaults — Entra ID Free", "https://learn.microsoft.com/entra/fundamentals/security-defaults"]
+        ]
+      },
+      {
+        name: "Multi-Factor Authentication (Authenticator push / TOTP / FIDO2)",
+        sku: "Entra ID Free (per-user MFA, Security Defaults, or as part of any CA policy)",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Basic MFA via Microsoft Authenticator (push / TOTP) and FIDO2 security keys are free on Entra ID Free. The 'per-user MFA' enforcement model and Security Defaults both enable MFA at no additional cost. Advanced features (number matching, system-preferred MFA method, location-based granularity) are also free since 2023.",
+        inScopeMeans: "every user signs in with MFA — the admin can require Authenticator app or FIDO2 keys on their own account at no licensing cost.",
+        examples: [
+          "Free: Admin requires FIDO2 (YubiKey) for sign-in via Authentication Methods policy. No P1 required.",
+          "Free: Admin enables phishing-resistant MFA via Authentication Strengths and applies through a CA policy — Authentication Strength config is free; the CA policy is where P1 kicks in if the admin's own account is in scope."
+        ],
+        docs: [
+          ["MFA licensing — free with Entra ID Free", "https://learn.microsoft.com/entra/identity/authentication/concept-mfa-licensing"],
+          ["Authentication methods policy", "https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage"]
+        ]
+      },
+      {
+        name: "Self-Service Password Reset (SSPR) — cloud users only",
+        sku: "Entra ID Free (cloud-only password reset)",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Cloud-only SSPR (Entra-mastered accounts, no on-prem AD writeback) is free for all cloud users on Entra ID Free.",
+        inScopeMeans: "the admin's cloud-only account can reset its own password via aka.ms/sspr at no licensing cost.",
+        examples: [
+          "Free: Cloud-only admin account uses SSPR to reset their password. No P1 required.",
+          "Not free: Admin's account is synced from on-prem AD and SSPR writes back to AD — see SSPR writeback row below for P1 requirement."
+        ],
+        docs: [
+          ["SSPR licensing (cloud users free)", "https://learn.microsoft.com/entra/identity/authentication/concept-sspr-licensing"]
+        ]
+      },
+      {
+        name: "Self-Service Password Reset (SSPR) — with on-prem writeback",
+        sku: "Entra ID P1 (per-user, bundled in M365 E3 / E5 / Business Premium / EMS E3+)",
+        scope: "per-user",
+        scopeNote: "When SSPR writes back to on-prem AD via Entra Connect / Cloud Sync password writeback, every user with writeback enabled needs Entra ID P1.",
+        inScopeMeans: "the admin's hybrid account uses SSPR and the new password syncs back to on-prem AD.",
+        examples: [
+          "Per-user: Hybrid admin account, password change via SSPR writes back to on-prem AD → P1 required."
+        ],
+        docs: [
+          ["SSPR password writeback (P1 required)", "https://learn.microsoft.com/entra/identity/authentication/howto-sspr-writeback"]
+        ]
+      },
+      {
+        name: "Application Proxy — admin who configures the connector",
+        sku: "Entra ID Free (role-gated: Application Administrator)",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Installing and configuring App Proxy connectors and publishing on-prem apps is role-gated. The publisher does not need a license.",
+        inScopeMeans: "the admin under Application Administrator role installs connectors and publishes on-prem apps through Entra App Proxy.",
+        examples: [
+          "Free: Admin publishes the on-prem helpdesk app through App Proxy for remote users."
+        ],
+        docs: [
+          ["Application Proxy admin role", "https://learn.microsoft.com/entra/identity/app-proxy/application-proxy"]
+        ]
+      },
+      {
+        name: "Application Proxy — connecting USER",
+        sku: "Entra ID P1 (per-user)",
+        scope: "per-user",
+        scopeNote: "Every user who CONNECTS through Entra App Proxy to an on-prem app needs Entra ID P1.",
+        inScopeMeans: "the admin's account connects through App Proxy to an on-prem app (e.g., SCCM console, legacy admin tool).",
+        examples: [
+          "Per-user: Admin connects via App Proxy to on-prem SCCM console → P1 required on the admin."
+        ],
+        docs: [
+          ["App Proxy licensing (connecting users)", "https://learn.microsoft.com/entra/identity/app-proxy/overview-what-is-app-proxy"]
+        ]
+      },
+      {
+        name: "Privileged Identity Management (PIM)",
+        sku: "Entra ID P2 (per ELIGIBLE user, bundled in M365 E5 / A5 / G5 / Entra Suite)",
+        scope: "per-user",
+        scopeNote: "Per PIM licensing fundamentals: 'an Entra ID P2 license is required for any user who is an eligible / active / approver / reviewer / requestor in PIM.' This includes the admin themselves when their role assignments are eligible-not-active.",
+        inScopeMeans: "the admin's role assignments are configured as PIM-eligible (not permanent-active), OR the admin is an approver / reviewer for someone else's PIM elevation.",
+        examples: [
+          "Per-user: Admin's Global Administrator role is configured as PIM-eligible — they activate just-in-time. P2 required on the admin.",
+          "Per-user: Admin is an approver for someone else's GA elevation. P2 required.",
+          "Free: Admin's GA role is permanent-active (NOT recommended) and they don't approve anyone else's PIM. No P2 — but Microsoft's privileged access guidance strongly recommends PIM eligibility."
+        ],
+        docs: [
+          ["PIM licensing fundamentals", "https://learn.microsoft.com/entra/id-governance/licensing-fundamentals#privileged-identity-management"],
+          ["M365 Maps — Entra ID P2", "https://m365maps.com/Microsoft%20Entra%20ID%20P2.htm"]
+        ]
+      },
+      {
+        name: "Identity Protection — sign-in / user risk policies",
+        sku: "Entra ID P2 (per-user, bundled in M365 E5 / A5 / G5 / Entra Suite)",
+        scope: "per-user",
+        scopeNote: "Identity Protection risk policies (sign-in risk, user risk) and full remediation (require password change, require MFA on risky sign-in) license each user IN POLICY SCOPE. Viewing the risky users / risky sign-ins reports is role-gated and free.",
+        inScopeMeans: "the admin's own account is in the user/group scope of a sign-in risk or user risk policy with remediation actions.",
+        notInScopeMeans: "the admin only VIEWS the risky users / risky sign-ins reports under the Security Reader role and is not themselves in any risk policy's scope.",
+        examples: [
+          "Per-user: All-users risk policy includes the admin → P2 required on the admin.",
+          "Free (viewing only): Admin under Security Reader role views the Risky Sign-Ins report but is not in any risk policy's scope. No P2."
+        ],
+        docs: [
+          ["Identity Protection required roles vs license scope", "https://learn.microsoft.com/entra/id-protection/overview-identity-protection#required-roles"]
+        ]
+      },
+      {
+        name: "Defender XDR portal (security.microsoft.com)",
+        sku: "Free for admin (role-gated). Per-user license required for protected USERS.",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Opening the Defender XDR portal, triaging incidents, and running advanced hunting queries is role-gated (Security Reader / Security Operator / Security Administrator). The admin's own account needs NO Defender / E5 license to operate the portal. The per-user Defender Suite or M365 E5 license is required on USERS / MAILBOXES / DEVICES that are being protected.",
+        inScopeMeans: "admin opens security.microsoft.com to triage incidents, run hunting queries, manage alerts. Role gives access; no license needed on the admin.",
+        notInScopeMeans: "admin's own mailbox is in scope of a Defender for Office 365 Safe Links policy — then they're in the protected population.",
+        examples: [
+          "Free: SOC analyst under Security Operator role triages 500 incidents/day in Defender XDR for 50,000 protected users. No license on the analyst's account.",
+          "Per-user: Admin's own mailbox is covered by Safe Attachments / Safe Links → Defender for Office 365 P1/P2 required on the admin's mailbox."
+        ],
+        docs: [
+          ["Defender XDR — role-based access", "https://learn.microsoft.com/defender-xdr/m365d-permissions"],
+          ["M365 Maps — Defender XDR", "https://m365maps.com/Microsoft%20Defender%20XDR.htm"]
+        ]
+      },
+      {
+        name: "Microsoft Sentinel",
+        sku: "Azure GB-based consumption (NOT per-user). Role-gated for admin operation.",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Sentinel is billed via Azure GB-ingested pricing, not per-user. Admin operates it under the Sentinel Contributor / Reader / Responder Azure roles. No per-user license on the admin or anyone else.",
+        inScopeMeans: "admin operates Sentinel workspaces, runs KQL queries, manages analytics rules, triages incidents.",
+        examples: [
+          "Free (per-user): Admin operates Sentinel across 5 workspaces. Azure consumption bill applies to the WORKSPACE, not per analyst or per protected user."
+        ],
+        docs: [
+          ["Sentinel billing — GB-based", "https://learn.microsoft.com/azure/sentinel/billing"]
+        ]
+      },
+      {
+        name: "Microsoft Security Copilot",
+        sku: "SCU (Security Compute Unit) tenant capacity. NOT per-user. Role-gated.",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Security Copilot is billed at the tenant level via SCU capacity provisioning. Admin operates it under the Copilot Owner / Contributor role. No per-user license assignment.",
+        inScopeMeans: "admin uses Security Copilot standalone or embedded experiences (Defender XDR, Sentinel, Intune) to investigate incidents.",
+        examples: [
+          "Free (per-user): SOC analysts under Copilot Contributor role use Security Copilot to summarize Defender XDR incidents. SCU capacity bill applies; no per-analyst license.",
+          "Bundled: M365 E5 and E7 customers get Security Copilot SCU capacity included at no extra cost."
+        ],
+        docs: [
+          ["Security Copilot — SCU pricing", "https://learn.microsoft.com/copilot/security/faq-security-copilot#how-is-security-copilot-priced"]
+        ]
+      },
+      {
+        name: "Microsoft Purview portal (purview.microsoft.com)",
+        sku: "Free for admin operation (role-gated). Per-user E5/E5 Compliance/Purview Suite required for PROTECTED USERS and admins IN MONITORED SCOPE.",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Opening the Purview portal and triaging IRM / DLP / eDiscovery / Communication Compliance alerts is role-gated (Insider Risk Management role group, eDiscovery Manager, Compliance Administrator, etc.). License applies to users IN MONITORED SCOPE — including the admin if they're added as a test user.",
+        inScopeMeans: "admin under Compliance Administrator / IRM role triages alerts and tunes policies. No license needed on the admin unless they're in a monitored user scope.",
+        notInScopeMeans: "admin is added as a TEST USER inside an IRM policy during pilot → they're in the monitored population, needs E5 Compliance / Purview Suite license.",
+        examples: [
+          "Free (admin only operates): IRM analyst triages 5,000 monitored users' alerts. Their own account is excluded from every IRM policy. No license on the analyst.",
+          "Per-user: Admin added as test user inside Data Theft IRM policy → license required on the admin's account."
+        ],
+        docs: [
+          ["Purview service description — who needs a license", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-purview-service-description#which-users-need-a-license"],
+          ["M365 Maps — Purview E5", "https://m365maps.com/Microsoft%20Purview%20E5.htm"]
+        ]
+      },
+      {
+        name: "Microsoft Intune admin center",
+        sku: "Free for admin operation (role-gated: Intune Administrator). Per-USER Intune Plan 1+ for managed users / devices.",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Opening the Intune admin center (intune.microsoft.com), authoring configuration profiles, compliance policies, app deployments, and Autopilot setups is role-gated under Intune Administrator. The admin's own account does NOT need an Intune license to operate the portal.",
+        inScopeMeans: "admin manages 10,000 devices via Intune policies and runs Autopilot enrollments. No license on the admin needed.",
+        notInScopeMeans: "admin's own device is enrolled in Intune as a managed device → admin needs an Intune license (Plan 1 / Plan 2 / Suite) on their own account.",
+        examples: [
+          "Free (admin operates only): Intune admin manages 10,000 user-devices but their own admin workstation is a pure cloud-only device not enrolled in Intune. No Intune license on the admin.",
+          "Per-user (admin's device managed): Admin's own laptop is enrolled in Intune with a compliance policy applied → Intune Plan 1+ required on the admin's account."
+        ],
+        docs: [
+          ["Intune RBAC roles", "https://learn.microsoft.com/intune/intune-service/fundamentals/role-based-access-control"],
+          ["Microsoft Intune licensing", "https://learn.microsoft.com/intune/intune-service/fundamentals/licenses"],
+          ["M365 Maps — Microsoft Intune Suite", "https://m365maps.com/Microsoft%20Intune%20Suite.htm"]
+        ]
+      },
+      {
+        name: "Intune Remote Help (helpers AND sharers)",
+        sku: "Remote Help standalone or Intune Suite — required on BOTH the helper admin's account AND the end-user sharer's account.",
+        scope: "per-user",
+        scopeNote: "Microsoft's Remote Help planning doc states verbatim: 'A Remote Help license for everyone targeted to use the service — both helpers (IT support workers) and sharers (users).' This is a UNIQUE dual-licensing rule in the Intune Suite.",
+        inScopeMeans: "admin will RUN Remote Help sessions from the Intune admin center (helper role) — license required on the admin's account.",
+        examples: [
+          "Per-user (helper): Helpdesk admin holds Help Desk Operator role and runs Remote Help sessions → Remote Help / Intune Suite license required on the admin."
+        ],
+        docs: [
+          ["Remote Help — plan (helpers AND sharers)", "https://learn.microsoft.com/intune/remote-help/plan"]
+        ]
+      },
+      {
+        name: "Microsoft Entra ID Governance — admin who CONFIGURES",
+        sku: "Entra ID Governance per-user (bundled in Entra Suite / M365 E7) — required on the admin who configures Lifecycle Workflows / Entitlement Management.",
+        scope: "per-user",
+        scopeNote: "The Entra ID Governance FAQ is explicit: 'A license is needed for any user who configures Lifecycle Workflows' — that includes the admin who builds the workflow.",
+        inScopeMeans: "admin authors Lifecycle Workflows or Entitlement Management access packages.",
+        examples: [
+          "Per-user: Identity admin builds Lifecycle Workflows for joiner/leaver automation → Entra ID Governance / Entra Suite / M365 E7 license required on the admin's own account."
+        ],
+        docs: [
+          ["Entra ID Governance FAQ — admin licensing", "https://learn.microsoft.com/entra/id-governance/licensing-fundamentals#do-licenses-need-to-be-assigned-to-users-to-use-identity-governance-features"]
+        ]
+      },
+      {
+        name: "Teams Premium — admin-only features (Advanced collaboration analytics)",
+        sku: "Teams Premium per-user — required on the Teams admin's own account.",
+        scope: "per-user",
+        scopeNote: "Per the Teams Premium licensing matrix, Advanced collaboration analytics and aggregated Teams Premium usage views require Teams Premium assigned to the Teams admin's OWN account.",
+        inScopeMeans: "admin uses Teams admin center features that require Teams Premium (analytics dashboards, premium config UIs).",
+        examples: [
+          "Per-user: Teams admin uses Advanced collaboration analytics → Teams Premium required on the admin's account."
+        ],
+        docs: [
+          ["Teams Premium admin license matrix", "https://learn.microsoft.com/microsoftteams/teams-add-on-licensing/licensing-enhance-teams#which-features-are-applied-to-organizers-attendeesusers-or-admins"]
+        ]
+      },
+      {
+        name: "Microsoft 365 Copilot — admin who USES Copilot",
+        sku: "Microsoft 365 Copilot per-user add-on, OR M365 E7 (bundles Copilot).",
+        scope: "per-user",
+        scopeNote: "Per the M365 Copilot licensing doc, Copilot in apps (Word/Excel/PowerPoint/Outlook/Teams) and Copilot Chat work mode check for the per-user M365 Copilot license on the signed-in user — including the admin.",
+        inScopeMeans: "admin invokes Copilot in any M365 app or runs work-mode Copilot Chat prompts.",
+        notInScopeMeans: "admin only MANAGES Copilot rollout in the M365 admin center (license assignment, restricted SharePoint sites, Copilot governance) but never uses Copilot themselves.",
+        examples: [
+          "Per-user: Admin opens Copilot Chat in Teams to draft a status report → M365 Copilot required on the admin.",
+          "Free (admin manages only): Admin configures Copilot license assignment and SharePoint Restricted Sites in the M365 admin center but never invokes Copilot. No Copilot license needed on the admin."
+        ],
+        docs: [
+          ["M365 Copilot licensing", "https://learn.microsoft.com/microsoft-365/copilot/microsoft-365-copilot-licensing"],
+          ["M365 Maps — Microsoft 365 Copilot", "https://m365maps.com/Microsoft%20365%20Copilot.htm"]
+        ]
+      },
+      {
+        name: "Microsoft Entra Verified ID",
+        sku: "Free — no special licensing requirements (per Verified ID FAQ).",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Microsoft's Verified ID FAQ states verbatim: 'There are no special licensing requirements to issue verifiable credentials.' Issuance is free; Verified ID is bundled in Entra Suite as a value-add but does not itself require a per-user license.",
+        inScopeMeans: "admin issues verifiable credentials for HR onboarding, helpdesk verification, etc.",
+        examples: [
+          "Free: Admin sets up Verified ID issuance pipeline for new-hire onboarding. No license required."
+        ],
+        docs: [
+          ["Verified ID FAQ — no licensing requirements", "https://learn.microsoft.com/entra/verified-id/verifiable-credentials-faq#what-are-the-licensing-requirements"]
+        ]
+      },
+      {
+        name: "Global Secure Access (Internet Access + Private Access)",
+        sku: "Microsoft Entra Suite per-user (or standalone GSA license) — required on EVERY USER whose device runs the GSA client.",
+        scope: "per-user",
+        scopeNote: "GSA is licensed per user whose client routes through the GSA edge. Configuring GSA policies in the Entra portal is role-gated and free.",
+        inScopeMeans: "admin's own laptop runs the GSA client and routes traffic through Entra Internet Access / Private Access.",
+        notInScopeMeans: "admin configures GSA traffic-forwarding profiles for other users but their own laptop is NOT a GSA client.",
+        examples: [
+          "Per-user: Admin's laptop runs GSA client → Entra Suite required on the admin's account.",
+          "Free (config only): Admin configures GSA Internet Access for 5,000 users but their own laptop bypasses GSA. No GSA license on the admin."
+        ],
+        docs: [
+          ["Global Secure Access overview", "https://learn.microsoft.com/entra/global-secure-access/overview-what-is-global-secure-access"],
+          ["M365 Maps — Entra Suite", "https://m365maps.com/Microsoft%20Entra%20Suite.htm"]
+        ]
+      },
+      {
+        name: "Microsoft Entra Connect / Cloud Sync — admin who configures",
+        sku: "Entra ID Free (role-gated: Hybrid Identity Administrator)",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Installing and operating Entra Connect (legacy) and Cloud Sync (modern) is role-gated. The admin who configures sync needs no license; synced USERS may need P1 for writeback features.",
+        inScopeMeans: "admin installs Entra Connect or Cloud Sync and configures attribute filtering, scoping filters, and writeback.",
+        examples: [
+          "Free: Hybrid Identity Administrator configures Cloud Sync to sync on-prem AD users to Entra. No license required on the admin."
+        ],
+        docs: [
+          ["Entra Connect / Cloud Sync overview", "https://learn.microsoft.com/entra/identity/hybrid/cloud-sync/what-is-cloud-sync"]
+        ]
+      },
+      {
+        name: "Cross-tenant access settings & B2B / B2B Direct Connect",
+        sku: "Entra ID Free for admin config. Per-MAU billing for guests (External ID), free baseline.",
+        scope: "tenant-wide-scopeable",
+        scopeNote: "Configuring cross-tenant access settings, B2B invitations, and B2B Direct Connect trust is role-gated. External users are billed per MAU (Monthly Active User) at the External ID pricing tier; first 50,000 MAU free per Microsoft pricing.",
+        inScopeMeans: "admin configures cross-tenant B2B trust and invites partners.",
+        examples: [
+          "Free: Admin invites 100 contractors as B2B guests. First 50,000 MAU free."
+        ],
+        docs: [
+          ["Cross-tenant access settings", "https://learn.microsoft.com/entra/external-id/cross-tenant-access-overview"],
+          ["External ID pricing (MAU model)", "https://learn.microsoft.com/entra/external-id/external-identities-pricing"]
+        ]
+      },
+      {
+        name: "Microsoft 365 admin center & Power Platform admin center",
+        sku: "Free — Global Administrator and Power Platform Administrator administer WITHOUT a license.",
+        scope: "tenant-wide-not-scopeable",
+        scopeNote: "Microsoft's documented policy: 'Global Administrators and Power Platform Administrators can administer without a license assigned.' Unlicensed admins land in Administrative access mode for Dynamics 365 / Power Platform.",
+        inScopeMeans: "admin operates the M365 admin center, Power Platform admin center, and Dynamics 365 admin center under GA / PPA role.",
+        examples: [
+          "Free: GA-only admin account manages tenant settings, license assignment, mailbox creation, Teams settings. No license required on the admin's account."
+        ],
+        docs: [
+          ["GA / PPA can administer without a license", "https://learn.microsoft.com/power-platform/admin/global-service-administrators-can-administer-without-license"]
+        ]
+      }
+    ],
+    docs: [
+      ["Microsoft Entra plans & pricing (Free vs P1 vs P2)", "https://www.microsoft.com/security/business/microsoft-entra-pricing"],
+      ["Microsoft Entra service description", "https://learn.microsoft.com/office365/servicedescriptions/azure-active-directory"],
+      ["Microsoft 365 security & compliance licensing guidance", "https://learn.microsoft.com/office365/servicedescriptions/microsoft-365-service-descriptions/microsoft-365-tenantlevel-services-licensing-guidance/microsoft-365-security-compliance-licensing-guidance"],
+      ["Microsoft Product Terms — Universal License Terms", "https://www.microsoft.com/licensing/terms/product/UniversalLicenseTerms/all"],
+      ["M365 Maps — full licensing map index", "https://m365maps.com/"],
+      ["M365 Maps — Microsoft 365 and Office 365 plans comparison", "https://m365maps.com/files/Microsoft-365-and-Office-365-Plans.htm"],
+      ["M365 Maps — Microsoft Entra ID Free / P1 / P2", "https://m365maps.com/Microsoft%20Entra%20ID%20P1.htm"],
+      ["M365 Maps — Microsoft 365 E3", "https://m365maps.com/Microsoft%20365%20E3.htm"],
+      ["M365 Maps — Microsoft 365 E5", "https://m365maps.com/Microsoft%20365%20E5.htm"],
+      ["M365 Maps — Microsoft Intune Suite", "https://m365maps.com/Microsoft%20Intune%20Suite.htm"],
+      ["M365 Maps — Microsoft Defender XDR", "https://m365maps.com/Microsoft%20Defender%20XDR.htm"],
+      ["M365 Maps — Microsoft Purview E5", "https://m365maps.com/Microsoft%20Purview%20E5.htm"],
+      ["M365 Maps — Microsoft Entra Suite", "https://m365maps.com/Microsoft%20Entra%20Suite.htm"]
+    ],
+    actions: [
+      { label: "← Back to privileged admin overview", target: "info_privileged_admins", tone: "primary" },
+      { label: "Start the admin walk-through →", target: "start", tone: "secondary" },
       { label: "← Back to account-scope choice", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -485,6 +1017,42 @@ export const TREE = {
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
+  info_per_device_licensing: {
+    info: true,
+    badge: "Background · informational",
+    badgeClass: "badge-warning",
+    title: "Per-device & shared-workstation licensing",
+    sub: "This tree profiles USERS — not devices. Shared workstations, lobby phones, classroom PCs, and Teams Rooms hardware follow a separate licensing model. Read this any time you're sizing a device, kiosk, or shared endpoint instead of a person.",
+    paragraphs: [
+      "WHY this is informational, not a yes/no fork. Every other question in this tree assumes a single human identity — a user account with a mailbox / no-mailbox, an admin role / no admin role, etc. Per-device licensing sits on a different procurement axis: it covers physical endpoints that don't map cleanly to one user (shared front-desk PC, conference-room display, factory-floor terminal, common-area phone, classroom workstation). When the right answer is per-device, the question to read is the Microsoft Product Terms — not a one-question wizard fork.",
+      "THE SHARED-WORKSTATION RULE (Universal License Terms). Microsoft's Universal License Terms — which apply to every Microsoft 365 / Office 365 / Windows / Teams SKU — say a per-user license covers ONE named user. If multiple distinct humans physically use the same device or sign in to the same Microsoft 365 Apps installation, EVERY one of those humans must EITHER (a) have their own per-user license assigned, OR (b) the device itself must be licensed with a per-device SKU. There is no middle ground.",
+      "TWO-ACCOUNT SAME USER IS NOT SHARED. A user who holds both a privileged admin account (e.g. admin-alice@tenant.onmicrosoft.com) and a primary daily-use account (alice@contoso.com) on the same laptop is ONE licensed user. Microsoft licensing is based on the human consuming the service, not the count of identities. The Privileged Admin / Primary Account split this tree's first question already captures is about role separation — it does not duplicate licensing.",
+      "WHEN PER-DEVICE IS THE RIGHT ANSWER. (1) A workstation that 5+ rotating shift workers sign in to (factory floor PC, hospital nurse station, retail back-office terminal). (2) A Teams conference room with a Teams Rooms certified appliance (Logitech Tap, Poly Studio X, etc.) — needs Teams Rooms Basic or Pro per device, not per user. (3) A lobby / reception / breakroom phone with no assigned user — needs Common Area Phone or Microsoft Teams Shared Devices. (4) A K-12 classroom PC used by 25+ students per day — Education Student-Use Benefit per device. (5) Industrial / air-gapped scenarios where cloud sign-in isn't possible — Office LTSC perpetual + Windows 11 Enterprise per Device via Volume Licensing.",
+      "THE PER-DEVICE SKU CATALOG. Microsoft Teams Rooms BASIC (~$0 / room / month, ≤ 25 rooms per tenant, basic meeting features, free) and PRO (~$40 / room / month, advanced management, intelligent capture, AI noise suppression, premium meeting experiences) — for Teams-certified room hardware. Microsoft Teams Shared Devices (~$10 / device / month) — for shared Teams phones, displays, and shared sign-in devices that aren't certified Teams Rooms. Common Area Phone (~$8 / device / month) — for unassigned lobby / hallway / elevator phones with PSTN calling via Calling Plan or Direct Routing. Microsoft 365 Apps for Enterprise (Device) — restricted SKU for shared physical PCs running installed Office; sold via Volume Licensing only. Windows 11 Enterprise per Device — Volume Licensing alternative to per-user E3 / E5 Windows entitlement; useful when devices are shared and you don't want to license every user with Microsoft 365. Office LTSC 2024 Standard / Professional Plus — perpetual, device-installed, no cloud sign-in; for air-gapped, regulated, or kiosk scenarios. EES Student-Use Benefit (per device) — academic device licensing for shared K-12 student PCs.",
+      "FRONTLINE-SPECIFIC NUANCE. Microsoft 365 F1 / F3 are PER-USER frontline SKUs that explicitly permit sign-in on shared devices — but the LICENSED entity is still the user, not the device. A frontline worker can sign in to up to 3 shared devices and 1 personal device with one F license. If a shared device is used by workers who do NOT have their own F license assigned (e.g. visiting contractors, walk-in vendors), the device itself needs a per-device SKU on top.",
+      "MICROSOFT 365 APPS — SHARED COMPUTER ACTIVATION (SCA). When installed Office (Word / Excel / PowerPoint / Outlook) runs on a SHARED Windows PC that multiple users sign in to (e.g. RDS / Citrix session hosts, multi-user shared workstations), Shared Computer Activation MUST be enabled in the Office Deployment Tool configuration. SCA does NOT change the licensing — every signed-in user still needs a Microsoft 365 Apps license — but without SCA enabled, Office will fail to activate on subsequent users. Required for AVD multi-session, Windows 365 Frontline pooled, RDS / Citrix scenarios. Not required when only one user signs into the PC.",
+      "AUDIT REALITY. Microsoft does enforce these rules during EA / CSP true-ups and licensing reviews. The two failure modes auditors most often find: (1) under-licensing — multiple users share a workstation but only one user license is assigned; (2) F-SKU mis-assignment — a knowledge worker who sits at a personal HQ desk is licensed as F1 / F3 to save money. Both are remediable but expensive. Use this tree's profile-by-profile recommendations for the PRIMARY user of each device, then sanity-check shared scenarios against the per-device catalog above.",
+      "BOTTOM LINE FOR THIS TOOL. If you are profiling a HUMAN USER who has dedicated use of a device (laptop, phone, shift-assigned tablet), the recommendations from the per-profile wizards are complete. If you are sizing a SHARED DEVICE, a CONFERENCE ROOM, a LOBBY PHONE, a CLASSROOM PC, or a KIOSK, treat this page as the authoritative reference and pick a per-device SKU from the catalog above — the per-user wizards do not apply."
+    ],
+    docs: [
+      ["Microsoft Product Terms — Universal License Terms (the per-user / per-device rule)", "https://www.microsoft.com/licensing/terms/product/UniversalLicenseTerms/all"],
+      ["Microsoft Product Terms — Microsoft 365 / Office 365 Online Services Use Rights", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"],
+      ["Microsoft Teams Rooms — licensing (Basic vs. Pro per-device)", "https://learn.microsoft.com/microsoftteams/teams-add-on-licensing/microsoft-teams-rooms-licensing"],
+      ["Microsoft Teams Shared Devices — license overview", "https://learn.microsoft.com/microsoftteams/teams-add-on-licensing/microsoft-teams-rooms-licensing#microsoft-teams-shared-devices-license"],
+      ["Common Area Phone licensing", "https://learn.microsoft.com/microsoftteams/set-up-common-area-phones"],
+      ["Microsoft 365 Apps for Enterprise (Device) — Volume Licensing reference", "https://www.microsoft.com/licensing/product-licensing/microsoft-365"],
+      ["Windows 11 Enterprise per-device vs. per-user (Volume Licensing)", "https://learn.microsoft.com/windows/whats-new/windows-licensing"],
+      ["Office LTSC 2024 — overview", "https://learn.microsoft.com/officeupdates/perpetual-versions"],
+      ["Microsoft 365 Apps — Shared Computer Activation (SCA) overview", "https://learn.microsoft.com/deployoffice/overview-shared-computer-activation"],
+      ["Microsoft 365 Apps — enable Shared Computer Activation", "https://learn.microsoft.com/deployoffice/overview-shared-computer-activation#enable-shared-computer-activation-for-microsoft-365-apps"],
+      ["Frontline workers — shared device sign-in (1 personal + 3 shared rule)", "https://learn.microsoft.com/microsoft-365/frontline/flw-shared-devices"],
+      ["EES Student-Use Benefit (per-device academic licensing)", "https://www.microsoft.com/licensing/news/student-use-benefit"],
+      ["Microsoft licensing audits — best practices (Volume Licensing)", "https://www.microsoft.com/licensing/learn-more/compliance"]
+    ],
+    actions: [
+      { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
+    ]
+  },
   // result_primary_account was previously a fuzzy result that said
   // "buy a base service license (E3 / Business Premium / F3) PLUS re-run
   // the admin tree to get the premium tier." That left the user with two
@@ -555,10 +1123,45 @@ export const TREE = {
       ["Conditional Access for workload identities", "https://learn.microsoft.com/entra/identity/conditional-access/workload-identity"]
     ],
     yes: "result_service_principal",
+    no: "q_admin_p1_audience"
+  },
+  q_admin_p1_audience: {
+    step: { major: 3, sub: 1, subTotal: 6, label: "Premium service features" },
+    question: "Is the admin's OWN account the AUDIENCE of any Microsoft Entra ID P1 feature — i.e., targeted by a Conditional Access policy (other than a break-glass exclusion), enrolled in self-service password reset with on-prem write-back, in scope of a sign-in risk policy with remediation, accessing an on-prem app published through Microsoft Entra Application Proxy, or having their device evaluated by Microsoft Defender for Cloud Apps Cloud Discovery?",
+    help: "This is the most-missed admin licensing question. Per Microsoft's Conditional Access licensing FAQ, every user TARGETED by a CA policy must have Entra ID P1 (or higher) assigned — and 'targeted' includes both included and effective scope. CONFIGURING a CA policy in the Entra portal is role-gated (Conditional Access Administrator) and does NOT require a license on the admin themselves, but if the admin's own account is in the policy's user/group scope, P1 is required. The same applies to SSPR with on-prem write-back (Hybrid Identity Administrator can configure, but the admin's own account using SSPR-writeback consumes P1), Application Proxy as a user (publisher is free, the connecting user is P1), and Cloud App Discovery on the admin's device. Security Defaults, basic per-user MFA (now Entra ID Free), cloud-only SSPR (cloud users on Entra ID Free), and Conditional Access POLICY CONFIGURATION are all FREE — they do not trigger this question. P2-tier features (PIM, Identity Protection sign-in risk policies with full remediation, Access Reviews) are covered by later questions.",
+    helpLink: { label: "See the full admin capability map (what's free vs P1 vs P2)", target: "info_admin_capability_map" },
+    rationale: {
+      why: "Microsoft's Conditional Access licensing FAQ ('Conditional Access licensing fundamentals') is explicit: 'Conditional Access requires Microsoft Entra ID P1 licenses for every user in scope of a Conditional Access policy.' The Entra ID Free vs P1 vs P2 comparison page (and the m365maps Entra ID P1 map) confirm P1 includes Conditional Access, Application Proxy, advanced group management, SSPR with write-back, and Cloud App Discovery as P1-AUDIENCE features. P2 layers PIM, Identity Protection, and Access Reviews on top — those are caught by later questions. Security Defaults, basic MFA enforcement, and cloud-user SSPR are now in Entra ID Free per the 2024+ licensing changes (security defaults are tenant-wide and free; MFA via Authenticator is free; cloud SSPR is free).",
+      yes: "the admin needs Microsoft Entra ID P1 on their own account (standalone, or via any plan that includes P1 — M365 E3, E5, Business Premium, A3, A5, G3, G5, Entra ID P1 standalone). Same rule for every other user in scope of those policies — license them separately.",
+      no: "no P1-audience trigger for the admin themselves — they can stay on Entra ID Free unless a later premium-tier trigger fires. Free tier still covers Security Defaults, basic per-user MFA, cloud-user SSPR, CA policy CONFIGURATION (role-gated), Entra Connect Cloud Sync, B2B guest invitations, and basic reporting. We continue walking the tree."
+    },
+    examples: [
+      "Yes example (CA target): Tenant has a Conditional Access policy 'All admins must use phishing-resistant MFA' that includes the Global Administrators role group. The admin's account holds GA, so they're in scope — P1 required.",
+      "Yes example (SSPR write-back): Admin's cloud account is synced from on-prem AD via Entra Connect, and SSPR is configured to write password changes back to AD. P1 required on the admin's account for the write-back path.",
+      "Yes example (Application Proxy): Admin connects to an on-prem SCCM console published through Entra Application Proxy — the connecting user (the admin) needs P1.",
+      "Yes example (Cloud Discovery): Admin's managed laptop reports shadow-IT app usage via the Defender for Cloud Apps Cloud Discovery integration — that data attribution requires P1 on the admin.",
+      "No example (CA config only): Admin authors and tunes Conditional Access policies for 5,000 users in the Entra portal under the Conditional Access Administrator role, but is explicitly excluded from every CA policy themselves (break-glass-style exclusion). No P1 needed on the admin's account.",
+      "No example (Security Defaults): Tenant uses Security Defaults (free, tenant-wide) — the admin is forced to enroll in Authenticator-based MFA but Security Defaults itself is Entra ID Free, not P1.",
+      "No example (cloud SSPR): Admin's account is cloud-only (no on-prem AD), and SSPR resets the cloud password — that's Entra ID Free.",
+      "No example (basic MFA): Admin uses Authenticator push for MFA via the per-user MFA legacy enforcement or via Security Defaults — neither requires P1."
+    ],
+    techDocs: [
+      ["Conditional Access licensing fundamentals (per-user-in-scope rule)", "https://learn.microsoft.com/entra/identity/conditional-access/overview#license-requirements"],
+      ["Microsoft Entra plans & pricing (Free vs P1 vs P2 feature matrix)", "https://www.microsoft.com/security/business/microsoft-entra-pricing"],
+      ["Microsoft Entra ID Free, P1, P2 feature comparison", "https://learn.microsoft.com/entra/fundamentals/whatis"],
+      ["What is Entra ID P1 — included features", "https://learn.microsoft.com/entra/fundamentals/concept-fundamentals-licensing"],
+      ["SSPR licensing — cloud users free, write-back needs P1", "https://learn.microsoft.com/entra/identity/authentication/concept-sspr-licensing"],
+      ["Application Proxy licensing — connecting users need P1", "https://learn.microsoft.com/entra/identity/app-proxy/overview-what-is-app-proxy"],
+      ["Security Defaults — Entra ID Free, tenant-wide", "https://learn.microsoft.com/entra/fundamentals/security-defaults"],
+      ["Microsoft Authenticator MFA — free with Entra ID Free", "https://learn.microsoft.com/entra/identity/authentication/concept-mfa-licensing"],
+      ["M365 Maps — Microsoft Entra ID P1 visual map", "https://m365maps.com/Microsoft%20Entra%20ID%20P1.htm"],
+      ["M365 Maps — Microsoft Entra ID Free vs P1 vs P2", "https://m365maps.com/files/Microsoft-365-and-Office-365-Plans.htm"]
+    ],
+    yes: "result_entra_id_p1_admin",
     no: "q_copilot"
   },
   q_copilot: {
-    step: { major: 3, sub: 1, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 2, subTotal: 6, label: "Premium service features" },
     question: "Will the privileged admin themselves USE Microsoft 365 Copilot — i.e., invoke Copilot in Word / Excel / PowerPoint / Outlook / Teams, run Microsoft 365 Copilot Chat work-based prompts (Entra-authenticated, tenant-grounded), build tenant-grounded Copilot Studio agents, or be assigned Microsoft Agent 365 governance for their own agent identities?",
     help: "M365 Copilot is one of the few admin scenarios where the per-user license is enforced on the admin's own account. Copilot in M365 apps and Copilot Chat work mode check for the M365 Copilot SKU on the signed-in user; without the license assigned, the admin sees only web-grounded Copilot Chat (free tier). Pure portal administration of Copilot deployment in the M365 admin center does NOT require Copilot on the admin — only actually using Copilot does. Note: Microsoft Security Copilot is a separate product on a different licensing model (SCU capacity, not per-user) — see the SOC-Copilot info card under Defender.",
     rationale: {
@@ -583,7 +1186,7 @@ export const TREE = {
     no: "q_purview_e5"
   },
   q_purview_e5: {
-    step: { major: 3, sub: 2, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 3, subTotal: 6, label: "Premium service features" },
     question: "Is the privileged admin themselves IN SCOPE — as a monitored user or test user — of any Microsoft Purview E5-tier policy (Insider Risk Management, Communication Compliance, Adaptive Protection, endpoint DLP, premium eDiscovery, auto-labeling, Records Management, Customer Lockbox, Customer Key, Information Barriers, Privileged Access Management for Office, or Audit Premium)?",
     help: "Important distinction: opening the Purview portal to manage policies / triage alerts / investigate incidents does NOT require a per-user license on the admin — that's gated by role-group permissions (Insider Risk Management, eDiscovery Manager, Compliance Administrator, etc.). The per-user E5 / E5 Compliance / Purview Suite license is only required for users whose activity is being monitored or whose mailbox / device / chat is being protected — including the admin if they're added as a test user in policy scope.",
     rationale: {
@@ -833,7 +1436,7 @@ export const TREE = {
     no: "q_defender"
   },
   q_defender: {
-    step: { major: 3, sub: 3, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 4, subTotal: 6, label: "Premium service features" },
     title: "Check whether the admin is personally protected by any Defender Suite component",
     question:
       "Is the admin's own mailbox, device, or identity covered by a Microsoft Defender for Office 365 P2, Defender for Endpoint P2, Defender for Identity, or Defender for Cloud Apps policy?",
@@ -871,29 +1474,44 @@ export const TREE = {
     no: "q_intune_suite"
   },
   q_intune_suite: {
-    step: { major: 3, sub: 4, subTotal: 5, label: "Premium service features" },
-    question: "Will the privileged admin act as a Remote Help HELPER (providing remote-control / view-only support sessions from the Intune portal), OR are they themselves in scope of Endpoint Privilege Management / Microsoft Tunnel for MAM / Cloud PKI / Enterprise App Management / Advanced Endpoint Analytics?",
-    help: "Unlike most admin portals, Remote Help is one of the few Microsoft portals that DOES enforce a per-user license check on the admin: Microsoft requires a Remote Help license assigned to BOTH the helper (admin) AND the sharer (end user) — this is one of the few admin scenarios where the admin's own account needs the add-on even though they aren't an end user of the protected workload. EPM, Tunnel for MAM, Cloud PKI, EAM, and Advanced Endpoint Analytics license the user / device being managed (not the admin who configures them), unless the admin's own device is also in scope.",
+    step: { major: 3, sub: 5, subTotal: 6, label: "Premium service features" },
+    title: "Check whether the admin is personally in scope of any Intune Suite feature",
+    question:
+      "Will the admin act as a Remote Help HELPER, OR is their own device / account in scope of Endpoint Privilege Management, Microsoft Tunnel for MAM, Cloud PKI, Enterprise App Management, or Advanced Endpoint Analytics?",
+    sub: "Operating the Intune admin center under an Intune Administrator role is not a license trigger. The trigger is whether the admin themselves is a helper / sharer, or their own device is in scope of one of the other five features.",
+    help:
+      "Unlike most admin portals, Remote Help is one of the few Microsoft portals that DOES enforce a per-user license check on the admin: Microsoft requires a Remote Help license assigned to BOTH the helper (admin) AND the sharer (end user) \u2014 this is one of the few admin scenarios where the admin's own account needs the add-on even though they aren't an end user of the protected workload. EPM, Tunnel for MAM, Cloud PKI, EAM, and Advanced Endpoint Analytics license the user / device being managed (not the admin who configures them), unless the admin's own device is also in scope.",
+    paragraphs: [
+      "The Microsoft Intune Suite is an umbrella over six advanced-capability add-ons: Endpoint Privilege Management (EPM), Remote Help, Microsoft Tunnel for MAM, Microsoft Cloud PKI, Enterprise App Management (EAM), and Advanced Endpoint Analytics. Every one of them requires Microsoft Intune Plan 1 or Plan 2 as the prerequisite BASE license \u2014 the Suite is layered on top, not a replacement. Five of the six are also sold as per-user standalone add-ons (EPM standalone, Remote Help standalone, Cloud PKI standalone, EAM standalone, Advanced Analytics standalone). Tunnel for MAM is the exception \u2014 it has no standalone SKU and is only sold as part of the Intune Suite.",
+      "Base Intune itself (Plan 1, included in Microsoft 365 E3 / E5 / E7 / Business Premium / EMS E3 / EMS E5) covers: MDM enrollment for Windows / macOS / iOS / Android, Mobile Application Management (MAM) with App Protection Policies on unenrolled devices, compliance policies, configuration profiles, Win32 / LOB app deployment, conditional-access integration, base Microsoft Tunnel (for ENROLLED devices), and base Endpoint Analytics (boot performance / anti-malware overhead aggregates). Intune Plan 2 adds specialty device management (AR/VR headsets, large meeting-room displays, conference devices) and is included in M365 E5 / E7. Anything above that base is an Intune Suite add-on \u2014 each card below maps to one of those six.",
+      "Five of the six features (EPM, Tunnel for MAM, Cloud PKI, EAM, Advanced Analytics) license the user whose device is in scope of the feature \u2014 NOT the admin who configures it. An Intune admin who only authors EPM elevation rules, deploys Cloud PKI certificate profiles, or curates the Enterprise App Catalog does not need a Suite license themselves UNLESS their own device is also a target of one of those policies. The unique exception is Remote Help: per Microsoft's official planning documentation (Prerequisites section, verbatim), 'A Remote Help license for everyone targeted to use the service \u2014 both helpers (IT support workers) and sharers (users).' Helpdesk admins who RUN Remote Help sessions must always be licensed on their own user account, even though they aren't an end user of any protected workload.",
+      "Important: portal role assignment and per-user license are separate dimensions. An Intune Administrator role lets the admin configure all six features in the admin center; only the per-user / per-device license check determines whether the admin themselves benefits from the feature on their own device or session. Answer Yes below if at least one of the six cards applies to the admin personally (as a helper / sharer for Remote Help, or as the user whose own device is in scope for the other five)."
+    ],
+    breakdownIntro:
+      "The Microsoft Intune Suite is six add-on capabilities, each licensed per-user, all sitting on top of base Intune Plan 1 or Plan 2. Expand each card to see how that feature is scoped, what 'in scope' means in plain language with licensed-vs-unlicensed walkthroughs, the standalone SKU (where available), and Microsoft's source citations. Remote Help is uniquely flagged for the helper+sharer dual-license rule (Microsoft's planning docs require it on BOTH the admin running the session AND the end user receiving it). The other five features license the user whose own device is in scope \u2014 admin operating the portal alone is not a trigger. Answer Yes below if at least ONE card applies to the admin themselves.",
+    productBreakdown: INTUNE_SUITE_MINI_CARDS,
+    productBreakdownAggregation: "any",
     rationale: {
-      why: "The Remote Help planning documentation states explicitly: 'A Remote Help license for everyone targeted to use the service — both helpers (IT support workers) and sharers (users).' This is unusual: most admin portals enforce role-based access control without a per-user license check on the admin. Endpoint Privilege Management, Tunnel for MAM, Cloud PKI, Enterprise App Management, and Advanced Endpoint Analytics license the managed user / device, so the admin only needs the license if their own device is in scope.",
+      why: "The Remote Help planning documentation states explicitly: 'A Remote Help license for everyone targeted to use the service \u2014 both helpers (IT support workers) and sharers (users).' This is unusual: most admin portals enforce role-based access control without a per-user license check on the admin. Endpoint Privilege Management, Tunnel for MAM, Cloud PKI, Enterprise App Management, and Advanced Endpoint Analytics license the managed user / device, so the admin only needs the license if their own device is in scope.",
       yes: "the admin needs the Intune Suite add-on (or the matching standalone add-on). Remote Help helpers ALWAYS need a license assigned to their admin account; the other five features need it only when the admin's own device is also in scope.",
-      no: "no Intune Suite trigger for the admin themselves. Note: every end-user device or sharer covered by these features still needs to be licensed — license them separately. We continue to Teams Premium."
+      no: "no Intune Suite trigger for the admin themselves. Note: every end-user device or sharer covered by these features still needs to be licensed \u2014 license them separately. We continue to Teams Premium."
     },
     examples: [
-      "Yes example (Remote Help helper): Helpdesk admin uses Remote Help from the Intune portal to take control of an end user's device — both the admin and the end user need a Remote Help / Intune Suite license assigned.",
-      "Yes example (own device): The admin's own laptop is enrolled in Intune and is targeted by an EPM elevation policy or onboarded for Advanced Endpoint Analytics — license the admin's user account.",
+      "Yes example (Remote Help helper): Helpdesk admin uses Remote Help from the Intune portal to take control of an end user's device \u2014 both the admin and the end user need a Remote Help / Intune Suite license assigned.",
+      "Yes example (own device): The admin's own laptop is enrolled in Intune and is targeted by an EPM elevation policy or onboarded for Advanced Endpoint Analytics \u2014 license the admin's user account.",
       "No example: The admin only configures EPM / Tunnel for MAM / Cloud PKI / EAM policies that target other users' devices, never their own, and never acts as a Remote Help helper."
     ],
     techDocs: [
-      ["Intune Suite and add-ons", "https://learn.microsoft.com/mem/intune/fundamentals/intune-add-ons"],
-      ["Endpoint Privilege Management overview", "https://learn.microsoft.com/mem/intune/protect/epm-overview"],
-      ["Remote Help", "https://learn.microsoft.com/mem/intune/remote-actions/remote-help"]
+      ["Microsoft Intune Suite and add-ons", "https://learn.microsoft.com/intune/fundamentals/intune-add-ons"],
+      ["Intune advanced capabilities (Plan 2 / Suite / standalone matrix)", "https://learn.microsoft.com/intune/fundamentals/advanced-capabilities"],
+      ["Remote Help \u2014 plan (helpers AND sharers both need a license)", "https://learn.microsoft.com/intune/remote-help/plan#prerequisites"],
+      ["Microsoft Intune plans and pricing (Plan 1 vs Plan 2 vs Suite)", "https://www.microsoft.com/security/business/microsoft-intune-pricing"]
     ],
     yes: "q_intune_breadth",
     no: "q_teams_premium"
   },
   q_teams_premium: {
-    step: { major: 3, sub: 5, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 6, subTotal: 6, label: "Premium service features" },
     question: "Will the privileged admin (a) host meetings using Teams Premium organizer features (advanced webinars, town halls premium, sensitivity-labeled meetings, branded meetings), (b) ATTEND meetings as a Teams Premium attendee (intelligent recap, live translation, AI notes/tasks under their own account), or (c) use Teams Premium ADMIN-ONLY features (advanced collaboration analytics, inactive teams/external domains insights, aggregated Teams Premium usage reporting in the Teams admin center)?",
     help: "Teams Premium is a per-user add-on with three license-check categories per the Microsoft Learn licensing page: organizer-based (license check on the meeting organizer), attendee-based (license check on each attendee receiving the feature), and admin-based (license check on the Teams admin's own account before they can see Advanced collaboration analytics and aggregated usage views in the Teams admin center). The Teams admin center page states explicitly: 'Customers must acquire and assign Teams Premium licenses to each user in their tenant for its use of Advanced collaboration analytics.' Plain Teams admin role access without a Teams Premium license assigned to the admin's own account hides the premium admin reports.",
     rationale: {
@@ -1034,7 +1652,7 @@ export const TREE = {
 
   // ---------- Admin tree disambiguation questions ----------
   q_copilot_e7_choice: {
-    step: { major: 3, sub: 1, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 2, subTotal: 6, label: "Premium service features" },
     question: "Will this user ALSO need Microsoft Entra Suite (Internet Access + Private Access + Verified ID) AND Agent 365 governance — all bundled in a single per-user SKU?",
     help: "Microsoft 365 E7 (Frontier Suite, generally available since May 1, 2026) bundles E5 + Copilot + Entra Suite + Agent 365 in one license. The Copilot add-on layered on E3/E5 is cheaper when you only need Copilot.",
     rationale: {
@@ -1051,7 +1669,7 @@ export const TREE = {
     no: "result_copilot_addon"
   },
   q_purview_e5_breadth: {
-    step: { major: 3, sub: 2, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 3, subTotal: 6, label: "Premium service features" },
     question: "Does this user ALSO need Defender XDR / Defender for Endpoint P2 / Defender for Identity / Defender for Cloud Apps (any of the Defender Suite workloads)?",
     help: "M365 E5 bundles Purview E5 AND the Defender Suite. If you need both for the same user, full E5 is the single cheapest SKU. The E5 Compliance add-on covers ONLY Purview E5 and is cheaper when Defender XDR is not in scope.",
     rationale: {
@@ -1072,7 +1690,7 @@ export const TREE = {
     no: "result_e5_compliance_only"
   },
   q_defender_breadth: {
-    step: { major: 3, sub: 3, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 4, subTotal: 6, label: "Premium service features" },
     question: "Does this user ALSO need Microsoft Purview E5 features (Insider Risk Management, Communication Compliance, premium eDiscovery, Audit Premium)?",
     help: "M365 E5 bundles the Defender Suite AND Purview E5. If you need both for the same user, full E5 is the single cheapest SKU. The Defender Suite add-on (formerly E5 Security) covers ONLY Defender — cheaper when Purview E5 isn't in scope.",
     breakdownIntro:
@@ -1093,7 +1711,7 @@ export const TREE = {
     no: "result_defender_suite_only"
   },
   q_intune_breadth: {
-    step: { major: 3, sub: 4, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 5, subTotal: 6, label: "Premium service features" },
     question: "Does this user need TWO OR MORE of the Intune premium features — Endpoint Privilege Management, Remote Help, Microsoft Tunnel for MAM, Cloud PKI, Enterprise App Management, or Advanced Endpoint Analytics?",
     help: "The Intune Suite bundles all six features and costs less than the sum of two standalone add-ons. If only ONE feature is in scope, the matching standalone add-on (EPM standalone, Remote Help standalone, etc.) is cheaper. Reminder for Remote Help: licensing applies to BOTH the helper (admin) and the sharer (end user) — a Remote Help / Intune Suite license must be assigned to the admin's own account if they will run support sessions.",
     rationale: {
@@ -1116,7 +1734,7 @@ export const TREE = {
   // specific feature pick so we can name the exact standalone SKU.
   q_intune_which_one: {
     choice: true,
-    step: { major: 3, sub: 5, subTotal: 5, label: "Premium service features" },
+    step: { major: 3, sub: 6, subTotal: 6, label: "Premium service features" },
     question: "Which Intune premium feature does this user need?",
     help: "Pick the one feature in scope. Each option maps to a specific Microsoft Intune standalone add-on SKU. If two or more apply to the same user, go back and answer 'Yes' to the previous question — the Intune Suite bundles all six.",
     choices: [
@@ -1454,6 +2072,7 @@ export const TREE = {
     step: { major: 2, sub: 1, subTotal: 3, label: "SMB tier" },
     question: "Does this user need MICROSOFT cloud collaboration services (Exchange Online mailbox, Microsoft Teams, SharePoint Online, OneDrive for Business) — OR do they ONLY need the installed Office apps (Word / Excel / PowerPoint / Outlook) on Windows or Mac?",
     help: "Microsoft 365 Apps for Business is the SMB-tier apps-only SKU — installed Office on up to 5 devices + 1 TB OneDrive, no Exchange / Teams / SharePoint cloud services. Cheaper than Business Basic / Standard / Premium when the org gets email and chat from a third party (Google Workspace, on-prem Exchange, etc.) or doesn't need them at all.",
+    helpLink: { label: "Sizing a shared front-desk PC, lobby phone, or conference room? Per-device licensing is different — read this", target: "info_per_device_licensing" },
     rationale: {
       why: "Apps for Business is a separate Business-family SKU sold at the same 300-seat cap as the Basic / Standard / Premium tier — but excludes every Microsoft cloud service except 1 TB OneDrive. Many small businesses run Google Workspace for email + chat and just need Office apps for documents — those orgs over-pay if they buy Business Standard or Premium.",
       yes: "user needs cloud Exchange / Teams / SharePoint — continue to the Business Basic / Standard / Premium tree.",
@@ -1559,6 +2178,7 @@ export const TREE = {
     step: { major: 2, sub: 2, subTotal: 14, label: "Frontline · eligibility · workplace pattern" },
     question: "Does this user typically work AWAY from a dedicated headquarters desk — on shop floors, customer sites, vehicles, hospital wards, retail floors, warehouses, kitchens, manufacturing lines — usually on mobile devices, shared kiosks, or rugged handhelds rather than a personal laptop / workstation?",
     help: "Second of THREE frontline-eligibility criteria. Microsoft's frontline definition emphasizes the WORK PATTERN: 'workers who are on the go, often on mobile devices.' F1 and F3 are priced and feature-shaped around that pattern — Teams Walkie Talkie, Shifts, Tasks, shared-device sign-in, mobile / web Office. A user who SITS at a dedicated HQ desk with a personal laptop is typically NOT frontline even if their job involves customer interaction — they're a knowledge worker who happens to talk to customers.",
+    helpLink: { label: "Profiling a SHARED device (kiosk, lobby phone, classroom PC, conference room) instead of a user? Read this first", target: "info_per_device_licensing" },
     rationale: {
       why: "F SKUs are scoped to a deskless / on-the-go / shared-device work pattern. Microsoft polices F misassignment to HQ desk workers during licensing reviews. A customer-facing user who works from an assigned desk with a dedicated laptop and a 50 GB mailbox is a knowledge worker on E, not a frontline worker on F.",
       yes: "the workplace-pattern criterion is met — continue to the final exclusion check (criterion 3 of 3).",
@@ -2139,18 +2759,47 @@ export const TREE = {
     title: "No license required — admin-only account",
     sub: "Global Administrators and Power Platform Administrators can administer without a license assigned.",
     license: "None. Microsoft Entra ID Free (included with the tenant) covers baseline directory / role work for an admin-only account",
-    decisionBasis: "You answered No to every premium-tier trigger — no Copilot, no Purview E5, no Defender XDR, no Intune Suite, no Teams Premium, no PIM, no Identity Protection, no Governance, and no Entra Suite. Microsoft's Entra licensing page confirms that a privileged admin who is only doing baseline directory / role work can run on Entra ID Free, which is included with the tenant.",
+    decisionBasis: "You answered No to every premium-tier trigger — no P1-audience features (Conditional Access targeting the admin, SSPR writeback, Application Proxy as a user, Cloud Discovery), no Copilot, no Purview E5, no Defender XDR, no Intune Suite, no Teams Premium, no PIM, no Identity Protection, no Governance, and no Entra Suite. Microsoft's Entra licensing page confirms that a privileged admin who is only doing baseline directory / role work can run on Entra ID Free, which is included with the tenant.",
     bullets: [
-      "Microsoft Entra ID Free already covers user/group management, basic reports, and SSO — no purchase needed.",
+      "Microsoft Entra ID Free already covers user/group management, basic reports, SSO, Security Defaults, basic per-user MFA (Authenticator / FIDO2), cloud-user SSPR, and CA policy CONFIGURATION (role-gated) — no purchase needed.",
       "Unlicensed admins land in 'Administrative access mode' for Dynamics 365 / Power Platform with no end-user access.",
-      "Add a license only if this admin needs to use a service (mailbox, Teams, etc.) or becomes in-scope for PIM, ID Protection, Purview E5, or Defender Suite policies.",
-      "Still required: phishing-resistant MFA on every privileged role (free with security defaults / CA)."
+      "Add a license only if this admin needs to use a service (mailbox, Teams, etc.), becomes in-scope of a CA policy (P1), or crosses into PIM, ID Protection, Purview E5, or Defender Suite policies (E5).",
+      "Still required: phishing-resistant MFA on every privileged role (free with Security Defaults / CA / Authentication Strengths)."
     ],
     docs: [
       ["Microsoft Entra ID Free", "https://learn.microsoft.com/azure/cost-management-billing/manage/microsoft-entra-id-free"],
       ["Global / Power Platform admins can administer without a license", "https://learn.microsoft.com/power-platform/admin/global-service-administrators-can-administer-without-license"],
       ["Microsoft Entra service description", "https://learn.microsoft.com/office365/servicedescriptions/azure-active-directory"],
-      ["Microsoft Product Terms — Universal License Terms (admin-without-license rule)", "https://www.microsoft.com/licensing/terms/product/UniversalLicenseTerms/all"]
+      ["Microsoft Product Terms — Universal License Terms (admin-without-license rule)", "https://www.microsoft.com/licensing/terms/product/UniversalLicenseTerms/all"],
+      ["M365 Maps — Entra ID Free vs P1 vs P2", "https://m365maps.com/Microsoft%20Entra%20ID%20P1.htm"]
+    ]
+  },
+  result_entra_id_p1_admin: {
+    result: true,
+    badge: "Entra ID P1",
+    badgeClass: "badge-info",
+    title: "Microsoft Entra ID P1 — admin in scope of a P1-audience feature",
+    sub: "The admin's OWN account is the audience of a Conditional Access policy, SSPR with on-prem writeback, Application Proxy as a connecting user, or Cloud App Discovery on their device.",
+    license: "Microsoft Entra ID P1, per user — assigned to the admin's own account. Already bundled in M365 E3 / E5 / Business Premium / A3 / A5 / G3 / G5 / EMS E3+; available standalone for pure Entra ID Free tenants.",
+    decisionBasis: "You answered Yes to the Entra ID P1 audience question — the admin's own account is in scope of at least one Conditional Access policy, uses SSPR with on-prem writeback, connects through Entra Application Proxy as a user, or is in the Defender for Cloud Apps Cloud Discovery report. Per Microsoft's Conditional Access licensing FAQ, every user targeted by a CA policy must have Entra ID P1 assigned — including the admin's own account. This is the most-missed admin licensing trigger.",
+    bullets: [
+      "Microsoft Entra ID P1 is required on the admin's own account because they're in the audience scope of a P1 feature (most commonly: at least one CA policy targets them).",
+      "P1 is bundled in M365 E3, M365 E5, M365 Business Premium, Microsoft 365 A3/A5/G3/G5, EMS E3, EMS E5, and Entra Suite — if the tenant already buys any of those for the admin, the requirement is satisfied.",
+      "For pure Entra ID Free tenants where the admin needs P1 standalone, license at the Microsoft Entra ID P1 per-user price.",
+      "Configuring CA policies, Authentication Strengths, Security Defaults, Application Proxy connectors, SSPR settings, and Cloud Discovery data collectors is all FREE (role-gated). The license requirement here is for the admin's account being the AUDIENCE of those policies — not for operating them.",
+      "If the admin is later in scope of a P2 feature (PIM-eligible role, Identity Protection risk policy with remediation, Access Reviews), the higher P2 tier applies — see the PIM / Identity Protection / Governance questions later in the tree.",
+      "Break-glass pattern: per Microsoft's emergency-access guidance, you should keep at least two break-glass accounts EXCLUDED from CA — those stay on Entra ID Free."
+    ],
+    docs: [
+      ["Conditional Access licensing fundamentals (per-user-in-scope rule)", "https://learn.microsoft.com/entra/identity/conditional-access/overview#license-requirements"],
+      ["Microsoft Entra plans & pricing (Free vs P1 vs P2 feature matrix)", "https://www.microsoft.com/security/business/microsoft-entra-pricing"],
+      ["SSPR licensing — cloud users free, writeback needs P1", "https://learn.microsoft.com/entra/identity/authentication/concept-sspr-licensing"],
+      ["Application Proxy licensing", "https://learn.microsoft.com/entra/identity/app-proxy/overview-what-is-app-proxy"],
+      ["Microsoft Entra ID Free, P1, P2 feature comparison", "https://learn.microsoft.com/entra/fundamentals/whatis"],
+      ["Emergency access accounts — CA exclusion pattern", "https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access"],
+      ["M365 Maps — Microsoft Entra ID P1", "https://m365maps.com/Microsoft%20Entra%20ID%20P1.htm"],
+      ["M365 Maps — Microsoft 365 E3 (includes P1)", "https://m365maps.com/Microsoft%20365%20E3.htm"],
+      ["M365 Maps — Microsoft 365 Business Premium (includes P1)", "https://m365maps.com/Microsoft%20365%20Business%20Premium.htm"]
     ]
   },
 
@@ -2688,6 +3337,7 @@ export const TREE = {
       ["M365 Maps — Apps for Business", "https://m365maps.com/Microsoft%20365%20Apps%20for%20business.htm"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2712,6 +3362,7 @@ export const TREE = {
       ["M365 Maps — Business plans", "https://m365maps.com/"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2736,6 +3387,7 @@ export const TREE = {
       ["M365 Maps — Business plans", "https://m365maps.com/"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2764,6 +3416,7 @@ export const TREE = {
       { label: "Deep-dive: Teams Phone licensing", target: "info_teams_phone", tone: "secondary" },
       { label: "Deep-dive: Windows 365 / Cloud PC", target: "info_windows_365", tone: "secondary" },
       { label: "Deep-dive: Viva / Project / Visio / Power Platform / Copilot add-ons", target: "info_workload_addons", tone: "secondary" },
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2791,6 +3444,7 @@ export const TREE = {
     actions: [
       { label: "Deep-dive: Teams Phone licensing", target: "info_teams_phone", tone: "secondary" },
       { label: "Deep-dive: Windows 365 / Cloud PC", target: "info_windows_365", tone: "secondary" },
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2815,6 +3469,7 @@ export const TREE = {
       ["M365 Comparison table — Enterprise & Frontline plans (PDF)", "https://aka.ms/M365EnterprisePlans"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2868,6 +3523,7 @@ export const TREE = {
       ["Microsoft Product Terms — Microsoft 365 Education Online Services (Qualified Educational User definition)", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2892,6 +3548,7 @@ export const TREE = {
       ["Microsoft Product Terms — Microsoft 365 Education Online Services (Qualified Educational User definition)", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
@@ -2916,6 +3573,7 @@ export const TREE = {
       ["Microsoft Product Terms — Microsoft 365 Education Online Services (Qualified Educational User definition)", "https://www.microsoft.com/licensing/terms/productoffering/MicrosoftOffice365/EAEAS"]
     ],
     actions: [
+      { label: "Deep-dive: Per-device & shared-workstation licensing", target: "info_per_device_licensing", tone: "secondary" },
       { label: "← Back to profile selector", target: "start_choice", tone: "secondary" }
     ]
   },
